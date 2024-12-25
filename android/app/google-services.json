@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "746387219372",
+    "project_id": "christmas-bingo-89281",
+    "storage_bucket": "christmas-bingo-89281.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:746387219372:android:baf22ca712b352bfa35009",
+        "android_client_info": {
+          "package_name": "com.batyito.christmas_bingo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACxxKL37AsADqU4HG0301qynCaEGlMHp8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
