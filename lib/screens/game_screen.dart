@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import '../services/firestore_service.dart';
+import '../services/firestore/firestore_service.dart';
 import '../widgets/bingo_board.dart';
 
 class GameScreen extends StatelessWidget {
   final String gameId;
   final String teamId; // Current team ID
-  final FirestoreService _firestoreService = FirestoreService();
+  final FirestoreService _firestoreService = FirestoreService.instance;
 
   GameScreen({required this.gameId, required this.teamId});
 
@@ -32,7 +32,7 @@ class GameScreen extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-            Text("Team: $teamId"),
+            Text("Csapat: $teamId"),
           ],
         ),
       ),
@@ -44,7 +44,7 @@ class GameScreen extends StatelessWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text("No teams have joined yet."));
+            return Center(child: Text("Nem csatlakozott még egy csapat sem!"));
           }
 
           final teamDocs = snapshot.data!.docs;
@@ -62,8 +62,16 @@ class GameScreen extends StatelessWidget {
 
           final board = List.generate(
             5,
-                (i) => List<String>.from(teamDocs.first['board']).sublist(i * 5, (i + 1) * 5),
+                (i) {
+              final boardData = List<String>.from(teamDocs.first['board'] ?? []);
+              if (boardData.length < 25) {
+                print("Invalid Tábla adatok: $boardData");
+                throw Exception("Tábla adat nem tartalmaz elég elemet");
+              }
+              return boardData.sublist(i * 5, (i + 1) * 5);
+            },
           );
+
 
           return BingoBoard(
             board: board,
@@ -77,7 +85,7 @@ class GameScreen extends StatelessWidget {
                 await _firestoreService.updateMarks(gameId, teamId, row, col, mark: true);
               } catch (error) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Failed to mark cell: $error")),
+                  SnackBar(content: Text("Nem sikerült megjelölni a cellát: $error")),
                 );
               }
             },

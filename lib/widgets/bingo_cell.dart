@@ -6,7 +6,7 @@ class BingoCell extends StatelessWidget {
   final Map<String, Color> teamColors; // Colors for each team
   final bool isMatching; // Whether this cell is part of a Bingo
 
-  BingoCell({
+  const BingoCell({super.key,
     required this.content,
     required this.marks,
     required this.teamColors,
@@ -22,7 +22,7 @@ class BingoCell extends StatelessWidget {
         .toList();
 
     // Assign colors to quadrants based on marked teams
-    final topLeftColor = markedTeams.length > 0
+    final topLeftColor = markedTeams.isNotEmpty
         ? teamColors[markedTeams[0]] ?? Colors.transparent
         : Colors.transparent;
     final topRightColor = markedTeams.length > 1

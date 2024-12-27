@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 class TeamColorPicker extends StatelessWidget {
   final Function(Color) onColorPicked;
 
-  TeamColorPicker({required this.onColorPicked});
+  const TeamColorPicker({super.key, required this.onColorPicked});
 
   @override
   Widget build(BuildContext context) {

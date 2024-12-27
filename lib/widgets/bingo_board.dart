@@ -8,7 +8,7 @@ class BingoBoard extends StatefulWidget {
   final Function(int row, int col) onMarkCell; // Callback for marking a cell
   final Function(int row, int col) onUnmarkCell; // Callback for unmarking a cell
 
-  BingoBoard({
+  const BingoBoard({super.key,
     required this.board,
     required this.marks,
     required this.teamColors,
@@ -72,12 +72,12 @@ class _BingoBoardState extends State<BingoBoard> {
                   },
 
                   child: BingoCell(
-                content: widget.board[row][col],
-                  marks: widget.marks[row][col], // Pass marks for this cell
-                  teamColors: widget.teamColors, // Pass team colors
-                  isMatching: matchingCells.contains('$row-$col'), // Bingo status
+                    content: widget.board[row][col],
+                    marks: widget.marks[row][col], // Pass marks for this cell
+                    teamColors: widget.teamColors, // Pass team colors
+                    isMatching: matchingCells.contains('$row-$col'), // Bingo status
 
-                ),
+                  ),
 
                 );
               },
@@ -131,20 +131,4 @@ class _BingoBoardState extends State<BingoBoard> {
         cellMarks.any((teamMark) => teamMark['marked'] == true));
   }
 
-  void _showInfoDialog(BuildContext context, String content) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(content),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text("bezár"),
-            ),
-          ],
-        );
-      },
-    );
-  }
 }
