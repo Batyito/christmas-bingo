@@ -51,7 +51,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          "Create New Game",
+          "Új Játék Létrehozása",
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
@@ -75,7 +75,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
     return DropdownButtonFormField<String>(
       value: selectedPackId,
       decoration: InputDecoration(
-        labelText: "Select a Pack",
+        labelText: "Válassz egy csomagot",
         labelStyle: TextStyle(
           color: Theme.of(context).colorScheme.onSurface,
           fontWeight: FontWeight.bold,
@@ -117,7 +117,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
           child: ElevatedButton.icon(
             onPressed: _createGame,
             icon: const Icon(Icons.add_circle_outline),
-            label: const Text("Create Game"),
+            label: const Text("Játék Létrehozása"),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
@@ -136,7 +136,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
               );
             },
             icon: const Icon(Icons.create),
-            label: const Text("Create New Pack"),
+            label: const Text("Csomag Létrehozása"),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
@@ -152,7 +152,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
   Widget _buildPackPreview() {
     if (selectedPackId == null) {
       return const Text(
-        "Select a pack to see a preview",
+        "Válassz egy csomagot a fenti legördülő menüből.",
         style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
       );
     }
@@ -161,7 +161,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
     if (pack == null || pack.items.isEmpty) {
       return const Center(
         child: Text(
-          "No items found in the selected pack.",
+          "Nincs megjeleníthető elem a kiválasztott csomagban.",
           style: TextStyle(fontSize: 16),
         ),
       );
@@ -172,12 +172,12 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            "Pack Preview: ${pack.name}",
+            "Csomag előnézet: ${pack.name}",
             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
           ),
           const SizedBox(height: 10),
           Text(
-            "Total Items: ${pack.items.length}",
+            "Összes elem: ${pack.items.length}",
             style: const TextStyle(color: Colors.grey, fontSize: 14),
           ),
           const Divider(thickness: 1.0),
@@ -196,7 +196,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
                     ),
                   ),
                   title: Text(item.name),
-                  subtitle: Text("Level: ${item.level}"),
+                  subtitle: Text("Szint: ${item.level}"),
                 );
               },
             ),

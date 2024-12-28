@@ -19,6 +19,7 @@ class HomeScreen extends StatelessWidget {
           "Mami Játékok",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 24),
         ),
+        backgroundColor: Theme.of(context).colorScheme.secondary,
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.palette),
@@ -163,7 +164,7 @@ class HomeScreen extends StatelessWidget {
                     child: ListTile(
                       leading: Icon(
                         Icons.group,
-                        color: Theme.of(context).colorScheme.primary,
+                        color: Theme.of(context).colorScheme.secondary,
                       ),
                       title: Text(teamNames[index]),
                       onTap: () {

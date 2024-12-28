@@ -51,4 +51,28 @@ extension TeamService on FirestoreService {
   Stream<QuerySnapshot> getTeams(String gameId) {
     return _db.collection('games').doc(gameId).collection('teams').snapshots();
   }
+
+  Stream<Map<String, List<Map<String, dynamic>>>> getTeamMarks(String gameId) {
+    return FirebaseFirestore.instance
+        .collection('games')
+        .doc(gameId)
+        .collection('teams')
+        .snapshots()
+        .map((snapshot) {
+      return Map.fromEntries(snapshot.docs.map((doc) {
+        return MapEntry(
+          doc.id,
+          List<Map<String, dynamic>>.from(doc.data()['marks'] ?? []).map((mark) {
+            return {
+              ...mark,
+              'teamId': mark['teamId'] ?? doc.id, // Default to team ID
+              'marked': mark['marked'] ?? false, // Default to false
+            };
+          }).toList(),
+        );
+      }));
+    });
+  }
+
+
 }

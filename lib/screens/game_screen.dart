@@ -8,7 +8,7 @@ class GameScreen extends StatelessWidget {
   final String teamId; // Current team ID
   final FirestoreService _firestoreService = FirestoreService.instance;
 
-  GameScreen({required this.gameId, required this.teamId});
+  GameScreen({super.key, required this.gameId, required this.teamId});
 
   final teamColors = {
     "Rebi": Colors.blue,
@@ -26,13 +26,16 @@ class GameScreen extends StatelessWidget {
             Container(
               width: 20,
               height: 20,
-              margin: EdgeInsets.only(right: 8),
+              margin: const EdgeInsets.only(right: 8),
               decoration: BoxDecoration(
                 color: teamColors[teamId] ?? Colors.grey,
                 shape: BoxShape.circle,
               ),
             ),
-            Text("Csapat: $teamId"),
+            Text(
+              "Csapat: $teamId",
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
@@ -44,34 +47,56 @@ class GameScreen extends StatelessWidget {
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text("Nem csatlakozott még egy csapat sem!"));
+            return const Center(child: Text("No teams have joined yet!"));
           }
 
           final teamDocs = snapshot.data!.docs;
+          final marksByTeam = Map<String, List<Map<String, dynamic>>>.fromEntries(
+            snapshot.data!.docs.map((doc) {
+              return MapEntry(
+                doc.id,
+                List<Map<String, dynamic>>.from(doc['marks']),
+              );
+            }),
+          );
+
+          debugPrint("Updated Marks from Firestore: $marksByTeam");
+          // Extract board for the current team
+          final currentTeamDoc = teamDocs.firstWhere(
+                (doc) => doc.id == teamId,
+            orElse: () => throw Exception("Team not found"),
+          );
+
+          final currentTeamBoard = (currentTeamDoc['board'] as List<dynamic>)
+              .map((cell) {
+            if (!cell.containsKey('name')) {
+              throw Exception("Invalid cell data: $cell");
+            }
+            return cell['name'] as String;
+          })
+              .toList();
 
           // Consolidate marks for all teams
           final consolidatedMarks = List.generate(
             25,
-                (index) => teamDocs
-                .map((doc) {
+                (index) => teamDocs.map((doc) {
+              final teamId = doc.id; // Extract team ID
               final teamMarks = List<Map<String, dynamic>>.from(doc['marks']);
-              return teamMarks[index];
-            })
-                .toList(),
+
+              // Add teamId to each mark
+              return {
+                ...teamMarks[index],
+                'teamId': teamId, // Attach the teamId
+              };
+            }).toList(),
           );
 
+
+          // Convert board to 5x5 grid
           final board = List.generate(
             5,
-                (i) {
-              final boardData = List<String>.from(teamDocs.first['board'] ?? []);
-              if (boardData.length < 25) {
-                print("Invalid Tábla adatok: $boardData");
-                throw Exception("Tábla adat nem tartalmaz elég elemet");
-              }
-              return boardData.sublist(i * 5, (i + 1) * 5);
-            },
+                (i) => currentTeamBoard.sublist(i * 5, (i + 1) * 5),
           );
-
 
           return BingoBoard(
             board: board,
@@ -85,7 +110,7 @@ class GameScreen extends StatelessWidget {
                 await _firestoreService.updateMarks(gameId, teamId, row, col, mark: true);
               } catch (error) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text("Nem sikerült megjelölni a cellát: $error")),
+                  SnackBar(content: Text("Failed to mark cell: $error")),
                 );
               }
             },
@@ -98,6 +123,7 @@ class GameScreen extends StatelessWidget {
                 );
               }
             },
+            teamId: teamId,
           );
         },
       ),
