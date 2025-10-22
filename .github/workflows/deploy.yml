@@ -1,12 +1,11 @@
-name: Deploy Flutter Web to GitHub Pages
+name: "[DISABLED] Deploy Flutter Web to GitHub Pages"
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
 
 jobs:
   build:
+    if: ${{ false }} # Disabled: use pages.yml instead
     runs-on: ubuntu-latest
 
     steps:
