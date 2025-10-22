@@ -109,16 +109,19 @@ extension FamilyService on FirestoreService {
   }
 
   String _generateInviteCode() {
+    // Web-safe 32-bit PRNG to avoid JS int precision issues.
     const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-    final rand = DateTime.now().microsecondsSinceEpoch;
-    // simple deterministic-ish spread
-    int x = rand ^ 0x9E3779B97F4A7C15;
-    String s = '';
+    // Derive a 32-bit seed from current time via FNV-1a 32-bit.
+    final seed = _fnv1a32(DateTime.now().microsecondsSinceEpoch.toString());
+    int x = seed & 0xFFFFFFFF;
+    final buf = StringBuffer();
     for (int i = 0; i < 10; i++) {
-      x = (x * 6364136223846793005 + 1) & 0x7fffffffffffffff;
-      s += alphabet[x % alphabet.length];
+      // LCG parameters (Numerical Recipes), constrained to 32-bit.
+      x = (x * 1664525 + 1013904223) & 0xFFFFFFFF;
+      final idx = (x & 0x7fffffff) % alphabet.length;
+      buf.write(alphabet[idx]);
     }
-    return s;
+    return buf.toString();
   }
 
   Future<String> createFamily(
@@ -244,4 +247,14 @@ extension FamilyService on FirestoreService {
         .orderBy('name')
         .snapshots();
   }
+}
+
+// FNV-1a 32-bit hash for seeding, JS-safe (kept to 32-bit operations)
+int _fnv1a32(String input) {
+  int hash = 0x811C9DC5;
+  for (final codeUnit in input.codeUnits) {
+    hash ^= codeUnit & 0xFF;
+    hash = (hash * 0x01000193) & 0xFFFFFFFF;
+  }
+  return hash & 0xFFFFFFFF;
 }
