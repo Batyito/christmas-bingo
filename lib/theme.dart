@@ -54,6 +54,26 @@ class AppThemes {
   );
 
   static final ThemeData christmasTheme = ThemeData.dark().copyWith(
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.white.withValues(alpha: 0.08),
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      iconTheme: const IconThemeData(color: Colors.white),
+      titleTextStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    cardTheme: CardThemeData(
+      color: Colors.white.withValues(alpha: 0.08),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      clipBehavior: Clip.antiAlias,
+      surfaceTintColor: Colors.transparent,
+    ),
     colorScheme: ColorScheme.dark(
       primary: Colors.red[800]!,
       secondary: Colors.green[700]!,
@@ -106,6 +126,26 @@ class AppThemes {
   );
 
   static final ThemeData easterTheme = ThemeData.dark().copyWith(
+    appBarTheme: AppBarTheme(
+      backgroundColor: Colors.white.withValues(alpha: 0.08),
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      surfaceTintColor: Colors.transparent,
+      iconTheme: const IconThemeData(color: Colors.white),
+      titleTextStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 20,
+        fontWeight: FontWeight.bold,
+      ),
+    ),
+    cardTheme: CardThemeData(
+      color: Colors.white.withValues(alpha: 0.08),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+      clipBehavior: Clip.antiAlias,
+      surfaceTintColor: Colors.transparent,
+    ),
     colorScheme: ColorScheme.dark(
       primary: Colors.pink[400]!,
       secondary: Colors.purple[200]!,

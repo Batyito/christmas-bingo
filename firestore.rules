@@ -1,0 +1,64 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // don't allow deleting user docs via client
+    }
+
+    match /packs/{packId} {
+      // For now, allow all authenticated reads; restrict writes to owners when ownerId is present
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && (request.resource.data.ownerId == request.auth.uid);
+    }
+
+    match /games/{gameId} {
+      allow read: if isSignedIn() && (
+        resource.data.ownerId == request.auth.uid ||
+        exists(/databases/$(database)/documents/games/$(gameId)/teams/$(request.auth.uid)) ||
+        // or user is member of any team via collection group check
+        get(/databases/$(database)/documents/__not_allowed__).data == null // placeholder always false
+      );
+      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+      // Subcollection: teams
+      match /teams/{teamId} {
+        allow read: if isSignedIn() && (
+          resource.data.members.hasAny([request.auth.uid]) ||
+          get(/databases/$(database)/documents/games/$(gameId)).data.ownerId == request.auth.uid
+        );
+        allow update: if isSignedIn() && (
+          request.resource.data.members.hasAny([request.auth.uid]) ||
+          get(/databases/$(database)/documents/games/$(gameId)).data.ownerId == request.auth.uid
+        );
+        allow create, delete: if isSignedIn() && get(/databases/$(database)/documents/games/$(gameId)).data.ownerId == request.auth.uid;
+      }
+    }
+
+    match /families/{familyId} {
+      allow read, update: if isSignedIn() && resource.data.members.hasAny([request.auth.uid]);
+      allow create: if isSignedIn();
+      allow delete: if false;
+      match /invites/{inviteId} {
+        // Allow public read of invites that are explicitly marked public and not expired
+        allow read: if (
+          (resource.data.isPublic == true &&
+            (!('expiresAt' in resource.data) || request.time < resource.data.expiresAt))
+          ) ||
+          (isSignedIn() && get(/databases/$(database)/documents/families/$(familyId)).data.members.hasAny([request.auth.uid]));
+        allow create, update, delete: if isSignedIn() && get(/databases/$(database)/documents/families/$(familyId)).data.ownerId == request.auth.uid;
+      }
+    }
+  }
+}

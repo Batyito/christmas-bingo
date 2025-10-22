@@ -1,13 +1,15 @@
 class BingoItem {
   final String name;
-  final int level;
+  final int level; // difficulty 1..5
+  final int times; // how many times this item can occur in the pool
 
-  BingoItem({required this.name, required this.level});
+  BingoItem({required this.name, required this.level, this.times = 1});
 
-  BingoItem copyWith({String? name, int? level}) {
+  BingoItem copyWith({String? name, int? level, int? times}) {
     return BingoItem(
       name: name ?? this.name,
       level: level ?? this.level,
+      times: times ?? this.times,
     );
   }
 
@@ -15,6 +17,7 @@ class BingoItem {
     return {
       'name': name,
       'level': level,
+      'times': times,
     };
   }
 
@@ -22,6 +25,7 @@ class BingoItem {
     return BingoItem(
       name: map['name'] as String,
       level: map['level'] as int,
+      times: (map['times'] as int?) ?? 1,
     );
   }
 }
