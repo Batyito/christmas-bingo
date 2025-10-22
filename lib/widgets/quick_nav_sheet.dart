@@ -25,7 +25,7 @@ Future<void> showQuickNavSheet(
       final theme = Theme.of(ctx);
       final surface = theme.colorScheme.surface.withOpacity(0.85);
       final border = theme.colorScheme.onSurface.withOpacity(0.12);
-      final textStyleBold = const TextStyle(fontWeight: FontWeight.bold);
+      // Bold style can be applied inline where needed; no separate local needed.
 
       void close() => Navigator.of(ctx).pop();
 

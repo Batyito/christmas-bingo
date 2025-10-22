@@ -5,6 +5,12 @@ import 'package:christmas_bingo/models/pack.dart';
 import '../services/firestore/firestore_service.dart';
 import '../services/auth_service.dart';
 import 'create_pack_screen.dart';
+import '../widgets/gradient_blur_app_bar.dart';
+import '../widgets/theme_effects/seasonal_gradient_background.dart';
+import '../widgets/theme_effects/snowfall_overlay.dart';
+import '../widgets/theme_effects/twinkles_overlay.dart';
+import '../widgets/theme_effects/hopping_bunnies_overlay.dart';
+import '../widgets/theme_effects/pastel_floaters_overlay.dart';
 import '../widgets/quick_nav_sheet.dart';
 
 class CreateGameScreen extends StatefulWidget {
@@ -19,9 +25,13 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
   String? selectedPackId; // Store selected Pack ID
   List<Pack> packs = []; // Use Pack model
   String? gameId;
-  final _teamControllers = List.generate(8, (_) => TextEditingController());
   bool _useFamilyTeams = false;
   List<String> _familyPackIds = [];
+  String? _selectedFamilyId;
+  List<_TeamDraft> _teams = [];
+  List<String> _memberUids = [];
+  Map<String, String> _displayNames = {}; // uid -> display name
+  late final String _themeKey = _autoThemeKey();
 
   @override
   void initState() {
@@ -37,58 +47,91 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
     });
   }
 
-  Future<void> _prefillFromFamily() async {
+  Future<void> _loadFamiliesAndMaybeSelect() async {
     final uid = AuthService().currentUser?.uid;
     if (uid == null) return;
+    // Prefer owned family, else first membership
     final owned = await _firestoreService.getOwnedFamily(uid);
-    final doc = owned;
-    if (doc == null) return;
-    _familyPackIds = List<String>.from(doc.data()?['packIds'] ?? []);
+    DocumentSnapshot<Map<String, dynamic>>? familyDoc = owned;
+    if (familyDoc == null) {
+      final membership = await FirebaseFirestore.instance
+          .collection('families')
+          .where('members', arrayContains: uid)
+          .limit(1)
+          .get();
+      if (membership.docs.isNotEmpty) familyDoc = membership.docs.first;
+    }
+    if (familyDoc != null) {
+      _selectedFamilyId = familyDoc.id;
+      _familyPackIds = List<String>.from(familyDoc.data()?['packIds'] ?? []);
+      await _loadFamilyTeamsAndMembers(familyDoc.id);
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _loadFamilyTeamsAndMembers(String familyId) async {
+    // Load members
+    final fam = await FirebaseFirestore.instance
+        .collection('families')
+        .doc(familyId)
+        .get();
+    _memberUids = List<String>.from(fam.data()?['members'] ?? []);
+    await _loadDisplayNames(_memberUids);
+    // Load teams -> drafts
     final teamsSnap = await FirebaseFirestore.instance
         .collection('families')
-        .doc(doc.id)
+        .doc(familyId)
         .collection('teams')
         .orderBy('name')
         .get();
-    final names =
-        teamsSnap.docs.map((d) => d['name']?.toString() ?? '').toList();
-    for (int i = 0; i < _teamControllers.length; i++) {
-      _teamControllers[i].text = i < names.length ? names[i] : '';
+    _teams = teamsSnap.docs
+        .map((d) => _TeamDraft(
+              name: (d['name']?.toString() ?? ''),
+              colorHex: d['color']?.toString(),
+              participants: List<String>.from(d['participants'] ?? []),
+            ))
+        .toList();
+  }
+
+  Future<void> _loadDisplayNames(List<String> uids) async {
+    _displayNames = {};
+    if (uids.isEmpty) return;
+    // Chunk by 10
+    for (int i = 0; i < uids.length; i += 10) {
+      final chunk =
+          uids.sublist(i, i + 10 > uids.length ? uids.length : i + 10);
+      final users = await FirebaseFirestore.instance
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+      for (final d in users.docs) {
+        _displayNames[d.id] = (d.data()['displayName']?.toString() ??
+            d.data()['email']?.toString() ??
+            d.id);
+      }
     }
-    setState(() {});
   }
 
   void _createGame() async {
     if (selectedPackId != null) {
       gameId = "game_${DateTime.now()}";
-      final teams = _teamControllers
-          .map((c) => c.text.trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
-      if (teams.isEmpty) {
-        teams.addAll(["Rebi", "Dorka", "Vanda", "Barbi"]);
+      List<String> teams;
+      List<Map<String, dynamic>>? teamConfigs;
+      if (_teams.isNotEmpty) {
+        teams = _teams
+            .map((t) => t.name.trim().isEmpty ? 'Csapat' : t.name.trim())
+            .toList();
+        teamConfigs = _teams
+            .map((t) => {
+                  'name': t.name.trim().isEmpty ? 'Csapat' : t.name.trim(),
+                  if (t.colorHex != null) 'color': t.colorHex,
+                  'participants': t.participants.take(4).toList(),
+                })
+            .toList();
+      } else {
+        teams = ["Rebi", "Dorka", "Vanda", "Barbi"];
       }
       final ownerId = AuthService().currentUser?.uid;
-      // When using family teams, also pass team configs (colors and participants)
-      List<Map<String, dynamic>>? teamConfigs;
-      if (_useFamilyTeams) {
-        final owned = await _firestoreService.getOwnedFamily(ownerId!);
-        if (owned != null) {
-          final snap = await FirebaseFirestore.instance
-              .collection('families')
-              .doc(owned.id)
-              .collection('teams')
-              .orderBy('name')
-              .get();
-          teamConfigs = snap.docs
-              .map((d) => {
-                    'name': d['name']?.toString() ?? '',
-                    'color': d['color']?.toString(),
-                    'participants': List<String>.from(d['participants'] ?? []),
-                  })
-              .toList();
-        }
-      }
       await _firestoreService.createGameWithPack(
         gameId!,
         selectedPackId!,
@@ -112,7 +155,12 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+      appBar: GradientBlurAppBar(
+        themeKey: _themeKey,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: const Text(
           "Új Játék Létrehozása",
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -125,57 +173,92 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildPackDropdown(),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Checkbox(
-                  value: _useFamilyTeams,
-                  onChanged: (v) async {
-                    setState(() => _useFamilyTeams = v ?? false);
-                    if (_useFamilyTeams) await _prefillFromFamily();
-                  },
-                ),
-                const Text('Családi csapatok használata'),
-              ],
-            ),
-            const SizedBox(height: 8),
-            _buildTeamsEditor(),
-            const SizedBox(height: 20),
-            _buildActionButtons(context),
-            const SizedBox(height: 20),
-            _buildPackPreview(),
+      body: Stack(
+        children: [
+          SeasonalGradientBackground(themeKey: _themeKey),
+          if (_themeKey == 'christmas') ...[
+            const IgnorePointer(child: SnowfallOverlay()),
+            const IgnorePointer(child: TwinklesOverlay()),
+          ] else ...[
+            const IgnorePointer(child: HoppingBunniesOverlay()),
+            const IgnorePointer(child: PastelFloatersOverlay()),
           ],
-        ),
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 980),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Left: Config panel
+                    Expanded(
+                      flex: 2,
+                      child: _buildConfigPanel(context),
+                    ),
+                    const SizedBox(width: 16),
+                    // Right: Pack preview
+                    Expanded(
+                      flex: 2,
+                      child: _buildPackPreview(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildTeamsEditor() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Csapatok', style: TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 8),
-        ...List.generate(_teamControllers.length, (i) {
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: TextField(
-              controller: _teamControllers[i],
-              decoration: InputDecoration(
-                labelText: 'Csapat ${i + 1}',
-                border:
-                    OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-              ),
+  Widget _buildConfigPanel(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _buildPackDropdown(),
+          const SizedBox(height: 12),
+          SwitchListTile.adaptive(
+            value: _useFamilyTeams,
+            title: const Text('Családi csapatok használata'),
+            onChanged: (v) async {
+              setState(() => _useFamilyTeams = v);
+              if (v) await _loadFamiliesAndMaybeSelect();
+            },
+          ),
+          if (_useFamilyTeams) ...[
+            _buildFamilySelector(),
+            const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 8),
+          const Text('Csapatok (max 8)',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          ..._teams
+              .asMap()
+              .entries
+              .map((e) => _buildTeamEditor(context, e.key, e.value)),
+          if (_teams.length < 8)
+            TextButton.icon(
+              onPressed: () {
+                setState(() {
+                  _teams.add(_TeamDraft(name: 'Csapat ${_teams.length + 1}'));
+                });
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Csapat hozzáadása'),
             ),
-          );
-        }),
-      ],
+          const SizedBox(height: 12),
+          _buildActionButtons(context),
+        ],
+      ),
     );
   }
 
@@ -265,23 +348,43 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
 
   Widget _buildPackPreview() {
     if (selectedPackId == null) {
-      return const Text(
-        "Válassz egy csomagot a fenti legördülő menüből.",
-        style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
+        ),
+        child: const Text(
+          "Válassz egy csomagot a bal oldali panelen.",
+          style: TextStyle(fontStyle: FontStyle.italic),
+        ),
       );
     }
 
     final pack = _getSelectedPack(selectedPackId!);
     if (pack == null || pack.items.isEmpty) {
-      return const Center(
-        child: Text(
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.10),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.08)),
+        ),
+        child: const Text(
           "Nincs megjeleníthető elem a kiválasztott csomagban.",
           style: TextStyle(fontSize: 16),
         ),
       );
     }
 
-    return Expanded(
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -298,15 +401,16 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
           Expanded(
             child: ListView.separated(
               itemCount: pack.items.length,
-              separatorBuilder: (_, __) => const Divider(),
+              separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (context, index) {
                 final BingoItem item = pack.items[index];
                 return ListTile(
+                  dense: true,
                   leading: CircleAvatar(
                     backgroundColor: Theme.of(context).colorScheme.primary,
                     child: Text(
                       "${index + 1}",
-                      style: const TextStyle(color: Colors.white),
+                      style: const TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ),
                   title: Text(item.name),
@@ -319,4 +423,160 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       ),
     );
   }
+
+  Widget _buildFamilySelector() {
+    return FutureBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      future: FirebaseFirestore.instance
+          .collection('families')
+          .where('members', arrayContains: AuthService().currentUser?.uid)
+          .get(),
+      builder: (context, snap) {
+        final families = snap.data?.docs ?? const [];
+        if (families.isEmpty) {
+          return const Text('Nincs elérhető család.');
+        }
+        return DropdownButtonFormField<String>(
+          value: _selectedFamilyId,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Válassz családot',
+            border: OutlineInputBorder(),
+          ),
+          items: families
+              .map((d) => DropdownMenuItem<String>(
+                    value: d.id,
+                    child: Text(d['name']?.toString() ?? d.id),
+                  ))
+              .toList(),
+          onChanged: (id) async {
+            setState(() => _selectedFamilyId = id);
+            if (id != null) {
+              final fam = families.firstWhere((e) => e.id == id);
+              _familyPackIds = List<String>.from(fam.data()['packIds'] ?? []);
+              await _loadFamilyTeamsAndMembers(id);
+              setState(() {});
+            }
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildTeamEditor(BuildContext context, int index, _TeamDraft draft) {
+    const palette = <Color>[
+      Color(0xFFE57373),
+      Color(0xFF64B5F6),
+      Color(0xFF81C784),
+      Color(0xFFFFB74D),
+      Color(0xFFBA68C8),
+      Color(0xFF4DB6AC),
+      Color(0xFFA1887F),
+      Color(0xFFFF8A65),
+    ];
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.10),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: const InputDecoration(labelText: 'Csapat neve'),
+                  controller: TextEditingController(text: draft.name),
+                  onChanged: (v) => draft.name = v,
+                ),
+              ),
+              const SizedBox(width: 8),
+              DropdownButton<Color>(
+                value: _resolveColor(draft.colorHex) ??
+                    palette[index % palette.length],
+                onChanged: (c) {
+                  setState(() {
+                    draft.colorHex = _colorToHex(c!);
+                  });
+                },
+                items: palette
+                    .map((c) => DropdownMenuItem<Color>(
+                          value: c,
+                          child: Container(width: 24, height: 24, color: c),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () {
+                  setState(() {
+                    _teams.removeAt(index);
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Text('Résztvevők (max 4)'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _memberUids.map((uid) {
+              final selected = draft.participants.contains(uid);
+              final label = _displayNames[uid] ?? uid.substring(0, 6);
+              return FilterChip(
+                label: Text(label),
+                selected: selected,
+                onSelected: (sel) {
+                  setState(() {
+                    if (sel) {
+                      if (draft.participants.length < 4) {
+                        draft.participants.add(uid);
+                      }
+                    } else {
+                      draft.participants.remove(uid);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          )
+        ],
+      ),
+    );
+  }
+
+  static String _colorToHex(Color c) =>
+      c.value.toRadixString(16).padLeft(8, '0').toUpperCase();
+  static Color? _resolveColor(String? hex) {
+    if (hex == null) return null;
+    try {
+      return Color(int.parse(hex, radix: 16));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _autoThemeKey() {
+    final month = DateTime.now().month;
+    return (month == 10 || month == 11 || month == 12 || month == 1)
+        ? 'christmas'
+        : 'easter';
+  }
+}
+
+class _TeamDraft {
+  String name;
+  String? colorHex;
+  List<String> participants;
+
+  _TeamDraft({
+    required this.name,
+    this.colorHex,
+    List<String>? participants,
+  }) : participants = participants ?? [];
 }
