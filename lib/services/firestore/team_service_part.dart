@@ -121,6 +121,30 @@ extension TeamService on FirestoreService {
     } catch (_) {}
   }
 
+  Future<void> joinTeamBySelect({
+    required String gameId,
+    required String teamId,
+    required String uid,
+  }) async {
+    final doc =
+        _db.collection('games').doc(gameId).collection('teams').doc(teamId);
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(doc);
+      if (!snap.exists) throw Exception('Team not found');
+      final members = List<String>.from(snap.data()?['members'] ?? []);
+      if (members.contains(uid)) return;
+      if (members.length >= 4) {
+        throw Exception('A csapat betelt (max 4 fő).');
+      }
+      tx.update(doc, {
+        'members': FieldValue.arrayUnion([uid])
+      });
+    });
+    try {
+      await incrementUserStat(uid, 'gamesPlayed', 1);
+    } catch (_) {}
+  }
+
   Future<Map<String, String>> findTeamByJoinCode(String joinCode) async {
     final query = await _db
         .collectionGroup('teams')

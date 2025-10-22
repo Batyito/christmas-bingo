@@ -17,6 +17,7 @@ import '../models/effects_settings.dart';
 import 'join_game_screen.dart';
 import 'theme_settings_screen.dart';
 import '../widgets/quick_nav_sheet.dart';
+import '../widgets/glassy_panel.dart';
 
 class HomeScreen extends StatelessWidget {
   // Optionally inject a service for testing; falls back to the singleton.
@@ -203,12 +204,19 @@ class HomeScreen extends StatelessWidget {
                 final dt = lastPlayed.toDate();
                 lastPlayedText = '  |  Utoljára játszva: ${dt.toLocal()}';
               }
-              return Card(
-                child: ListTile(
-                  title: Text('Statisztika'),
-                  subtitle: Text(
-                    'Saját játékok: ${stats['gamesOwned'] ?? '-'}  |  Játszott: ${stats['gamesPlayed'] ?? '-'}  |  Győzelmek: ${stats['gamesWon'] ?? '-'}  |  Jelölt mezők: ${stats['tilesMarked'] ?? '-'}$lastPlayedText',
-                  ),
+              return GlassyPanel(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Statisztika',
+                        style: Theme.of(context).textTheme.titleMedium),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Saját játékok: ${stats['gamesOwned'] ?? '-'}  |  Játszott: ${stats['gamesPlayed'] ?? '-'}  |  Győzelmek: ${stats['gamesWon'] ?? '-'}  |  Jelölt mezők: ${stats['tilesMarked'] ?? '-'}$lastPlayedText',
+                    ),
+                  ],
                 ),
               );
             },
@@ -219,12 +227,17 @@ class HomeScreen extends StatelessWidget {
         SizedBox(
           height: 220,
           child: StreamBuilder<QuerySnapshot>(
-            stream: _firestoreService.getGames(ownerId: uid),
+            stream: uid == null
+                ? const Stream<QuerySnapshot>.empty()
+                : _firestoreService.getGames(ownerId: uid),
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final games = snapshot.data!.docs;
+              if (snapshot.hasError) {
+                return Center(child: Text('Hiba a játékok betöltésekor'));
+              }
+              final games = snapshot.data?.docs ?? const [];
               if (games.isEmpty) {
                 return const Center(child: Text('Még nincs saját játék.'));
               }
@@ -240,16 +253,21 @@ class HomeScreen extends StatelessWidget {
               ? const Stream.empty()
               : _firestoreService.streamUserTeams(uid),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-            final teams = snapshot.data!;
+            if (snapshot.hasError) {
+              return const Text('Hiba a csapatok betöltésekor');
+            }
+            final teams = snapshot.data ?? const <Map<String, String>>[];
             if (teams.isEmpty) {
               return const Text('Nem vagy tagja egy csapatnak sem.');
             }
             return Column(
               children: teams.map((t) {
-                return Card(
+                return GlassyPanel(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                   child: ListTile(
                     leading: const Icon(Icons.group),
                     title: Text(t['teamName'] ?? t['teamId']!),
@@ -290,10 +308,14 @@ class HomeScreen extends StatelessWidget {
                     .limit(5)
                     .snapshots(),
             builder: (context, snapshot) {
-              if (!snapshot.hasData) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final games = snapshot.data!.docs;
+              if (snapshot.hasError) {
+                return const Center(
+                    child: Text('Hiba az aktivitás betöltésekor'));
+              }
+              final games = snapshot.data?.docs ?? const [];
               if (games.isEmpty) {
                 return const Center(child: Text('Még nincs aktivitás.'));
               }
@@ -388,51 +410,103 @@ class HomeScreen extends StatelessWidget {
       ),
       context: context,
       builder: (context) {
-        final teamNames = ["Rebi", "Dorka", "Vanda", "Barbi"];
+        final uid = _auth.currentUser?.uid;
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                "Válassz csapatot!",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              ListView.builder(
-                shrinkWrap: true,
-                itemCount: teamNames.length,
-                itemBuilder: (context, index) {
-                  return Card(
-                    margin: const EdgeInsets.symmetric(vertical: 8),
-                    child: ListTile(
-                      leading: Icon(
-                        Icons.group,
-                        color: Theme.of(context).colorScheme.secondary,
+          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('games')
+                .doc(gameId)
+                .collection('teams')
+                .snapshots(),
+            builder: (context, snap) {
+              if (snap.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              final docs = snap.data?.docs ?? const [];
+              if (docs.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Text('Ehhez a játékhoz még nincsenek csapatok.'),
+                );
+              }
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Válassz csapatot!",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  ...docs.map((d) {
+                    final name = d.data()['name']?.toString() ?? d.id;
+                    final colorHex = d.data()['color']?.toString();
+                    final color = _hexToColor(colorHex);
+                    final members =
+                        List<String>.from(d.data()['members'] ?? []);
+                    final isFull = members.length >= 4;
+                    final isMember = uid != null && members.contains(uid);
+                    return GlassyPanel(
+                      margin: const EdgeInsets.symmetric(vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      child: ListTile(
+                        leading: CircleAvatar(backgroundColor: color),
+                        title: Text(name),
+                        subtitle: Text(isFull
+                            ? 'Betelt (4/4)'
+                            : 'Helyek: ${members.length}/4'),
+                        trailing: isMember
+                            ? const Icon(Icons.check, color: Colors.green)
+                            : const Icon(Icons.chevron_right),
+                        enabled: isMember || !isFull,
+                        onTap: () async {
+                          try {
+                            if (!isMember && uid != null) {
+                              await _firestoreService.joinTeamBySelect(
+                                gameId: gameId,
+                                teamId: d.id,
+                                uid: uid,
+                              );
+                            }
+                            if (!context.mounted) return;
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => GameScreen(
+                                  gameId: gameId,
+                                  teamId: d.id,
+                                  currentThemeKey: currentThemeKey,
+                                  effectsSettings: effectsSettings,
+                                ),
+                              ),
+                            );
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(e.toString())),
+                            );
+                          }
+                        },
                       ),
-                      title: Text(teamNames[index]),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => GameScreen(
-                              gameId: gameId,
-                              teamId: teamNames[index],
-                              currentThemeKey: currentThemeKey,
-                              effectsSettings: effectsSettings,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  );
-                },
-              ),
-            ],
+                    );
+                  }),
+                ],
+              );
+            },
           ),
         );
       },
     );
+  }
+
+  Color _hexToColor(String? hex) {
+    if (hex == null) return Colors.grey;
+    try {
+      return Color(int.parse(hex, radix: 16));
+    } catch (_) {
+      return Colors.grey;
+    }
   }
 }

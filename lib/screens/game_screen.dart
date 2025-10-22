@@ -190,21 +190,38 @@ class GameScreen extends StatelessWidget {
                 throw Exception("Hibás cellaadatok: $cell");
               }).toList();
 
-              // Consolidate marks for all teams
-              final consolidatedMarks = List.generate(
-                25,
-                (index) => teamDocs.map((doc) {
-                  final teamId = doc.id; // Extract team ID
-                  final teamMarks =
-                      List<Map<String, dynamic>>.from(doc['marks']);
-
-                  // Add teamId to each mark
-                  return {
-                    ...teamMarks[index],
-                    'teamId': teamId, // Attach the teamId
+              // Consolidate marks for all teams, defensive against short/missing mark lists
+              Map<String, dynamic> _defaultMark(int idx) => {
+                    'row': idx ~/ 5,
+                    'col': idx % 5,
+                    'marked': false,
                   };
-                }).toList(),
-              );
+              List<Map<String, dynamic>> _safeMarksForDoc(
+                  QueryDocumentSnapshot doc) {
+                final raw = doc.data() as Map<String, dynamic>;
+                final list = List<Map<String, dynamic>>.from(
+                    (raw['marks'] ?? const <Map<String, dynamic>>[]));
+                // Pad/truncate to 25
+                if (list.length < 25) {
+                  return List.generate(
+                      25,
+                      (i) => i < list.length
+                          ? {..._defaultMark(i), ...list[i]}
+                          : _defaultMark(i));
+                }
+                return List.generate(
+                    25, (i) => {..._defaultMark(i), ...list[i]});
+              }
+
+              final consolidatedMarks = List.generate(25, (index) {
+                return teamDocs.map((doc) {
+                  final marks = _safeMarksForDoc(doc);
+                  return {
+                    ...marks[index],
+                    'teamId': doc.id,
+                  };
+                }).toList();
+              });
 
               // Convert board to 5x5 grid
               final board = List.generate(
@@ -233,9 +250,8 @@ class GameScreen extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
-                            color: color.withValues(alpha: 0.25),
-                            border:
-                                Border.all(color: color.withValues(alpha: 0.7)),
+                            color: color.withOpacity(0.25),
+                            border: Border.all(color: color.withOpacity(0.7)),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Row(

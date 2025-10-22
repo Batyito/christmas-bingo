@@ -46,7 +46,9 @@ extension GameService on FirestoreService {
     await initializeTeamsForGame(
       gameId,
       bingoPool,
-      teams: teamNames ?? ['Rebi', 'Dorka', 'Vanda', 'Barbi'],
+      teams: (teamNames == null || teamNames.isEmpty)
+          ? const ['Csapat 1']
+          : teamNames,
       teamConfigs: teamConfigs,
     );
   }

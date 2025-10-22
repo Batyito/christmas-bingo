@@ -12,6 +12,7 @@ import '../widgets/theme_effects/twinkles_overlay.dart';
 import '../widgets/theme_effects/hopping_bunnies_overlay.dart';
 import '../widgets/theme_effects/pastel_floaters_overlay.dart';
 import '../widgets/quick_nav_sheet.dart';
+import '../widgets/glassy_panel.dart';
 
 class CreateGameScreen extends StatefulWidget {
   const CreateGameScreen({super.key});
@@ -32,6 +33,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
   List<String> _memberUids = [];
   Map<String, String> _displayNames = {}; // uid -> display name
   late final String _themeKey = _autoThemeKey();
+  final List<TextEditingController> _nameControllers = [];
 
   @override
   void initState() {
@@ -91,6 +93,7 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
               participants: List<String>.from(d['participants'] ?? []),
             ))
         .toList();
+    _syncNameControllersWithTeams();
   }
 
   Future<void> _loadDisplayNames(List<String> uids) async {
@@ -129,7 +132,11 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
                 })
             .toList();
       } else {
-        teams = ["Rebi", "Dorka", "Vanda", "Barbi"];
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Adj hozzá legalább egy csapatot!')),
+        );
+        return;
       }
       final ownerId = AuthService().currentUser?.uid;
       await _firestoreService.createGameWithPack(
@@ -149,6 +156,20 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       return packs.firstWhere((pack) => pack.id == packId);
     } catch (e) {
       return null;
+    }
+  }
+
+  void _syncNameControllersWithTeams() {
+    while (_nameControllers.length > _teams.length) {
+      _nameControllers.removeLast().dispose();
+    }
+    for (var i = 0; i < _teams.length; i++) {
+      if (i >= _nameControllers.length) {
+        _nameControllers.add(TextEditingController(text: _teams[i].name));
+      } else {
+        final c = _nameControllers[i];
+        if (c.text != _teams[i].name) c.text = _teams[i].name;
+      }
     }
   }
 
@@ -213,51 +234,51 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
   }
 
   Widget _buildConfigPanel(BuildContext context) {
-    return Container(
+    return GlassyPanel(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.14),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _buildPackDropdown(),
-          const SizedBox(height: 12),
-          SwitchListTile.adaptive(
-            value: _useFamilyTeams,
-            title: const Text('Családi csapatok használata'),
-            onChanged: (v) async {
-              setState(() => _useFamilyTeams = v);
-              if (v) await _loadFamiliesAndMaybeSelect();
-            },
-          ),
-          if (_useFamilyTeams) ...[
-            _buildFamilySelector(),
-            const SizedBox(height: 8),
-          ],
-          const SizedBox(height: 8),
-          const Text('Csapatok (max 8)',
-              style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8),
-          ..._teams
-              .asMap()
-              .entries
-              .map((e) => _buildTeamEditor(context, e.key, e.value)),
-          if (_teams.length < 8)
-            TextButton.icon(
-              onPressed: () {
-                setState(() {
-                  _teams.add(_TeamDraft(name: 'Csapat ${_teams.length + 1}'));
-                });
+      bgOpacity: 0.14,
+      borderOpacity: 0.12,
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildPackDropdown(),
+            const SizedBox(height: 12),
+            SwitchListTile.adaptive(
+              value: _useFamilyTeams,
+              title: const Text('Családi csapatok használata'),
+              onChanged: (v) async {
+                setState(() => _useFamilyTeams = v);
+                if (v) await _loadFamiliesAndMaybeSelect();
               },
-              icon: const Icon(Icons.add),
-              label: const Text('Csapat hozzáadása'),
             ),
-          const SizedBox(height: 12),
-          _buildActionButtons(context),
-        ],
+            if (_useFamilyTeams) ...[
+              _buildFamilySelector(),
+              const SizedBox(height: 8),
+            ],
+            const SizedBox(height: 8),
+            const Text('Csapatok (max 8)',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            ..._teams
+                .asMap()
+                .entries
+                .map((e) => _buildTeamEditor(context, e.key, e.value)),
+            if (_teams.length < 8)
+              TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _teams.add(_TeamDraft(name: 'Csapat ${_teams.length + 1}'));
+                  });
+                  _syncNameControllersWithTeams();
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('Csapat hozzáadása'),
+              ),
+            const SizedBox(height: 12),
+            _buildActionButtons(context),
+          ],
+        ),
       ),
     );
   }
@@ -378,13 +399,10 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       );
     }
 
-    return Container(
+    return GlassyPanel(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-      ),
+      bgOpacity: 0.10,
+      borderOpacity: 0.08,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -473,14 +491,12 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
       Color(0xFFA1887F),
       Color(0xFFFF8A65),
     ];
-    return Container(
+    return GlassyPanel(
       margin: const EdgeInsets.symmetric(vertical: 6),
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.10),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
-        borderRadius: BorderRadius.circular(8),
-      ),
+      bgOpacity: 0.10,
+      borderOpacity: 0.12,
+      radius: 8,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -489,7 +505,9 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
               Expanded(
                 child: TextField(
                   decoration: const InputDecoration(labelText: 'Csapat neve'),
-                  controller: TextEditingController(text: draft.name),
+                  controller: _nameControllers.length > index
+                      ? _nameControllers[index]
+                      : null,
                   onChanged: (v) => draft.name = v,
                 ),
               ),
@@ -515,6 +533,10 @@ class _CreateGameScreenState extends State<CreateGameScreen> {
                 onPressed: () {
                   setState(() {
                     _teams.removeAt(index);
+                    if (_nameControllers.length > index) {
+                      _nameControllers[index].dispose();
+                      _nameControllers.removeAt(index);
+                    }
                   });
                 },
               ),
