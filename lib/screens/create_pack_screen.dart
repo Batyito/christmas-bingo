@@ -4,6 +4,12 @@ import '../services/firestore/firestore_service.dart';
 import '../models/bingo_item.dart';
 import '../models/pack.dart';
 import '../widgets/quick_nav_sheet.dart';
+import '../widgets/gradient_blur_app_bar.dart';
+import '../widgets/theme_effects/seasonal_gradient_background.dart';
+import '../widgets/theme_effects/snowfall_overlay.dart';
+import '../widgets/theme_effects/twinkles_overlay.dart';
+import '../widgets/theme_effects/hopping_bunnies_overlay.dart';
+import '../widgets/theme_effects/pastel_floaters_overlay.dart';
 
 class CreatePackScreen extends StatefulWidget {
   const CreatePackScreen({super.key});
@@ -288,8 +294,14 @@ class _CreatePackScreenState extends State<CreatePackScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeKey = _autoThemeKey();
     return Scaffold(
-      appBar: AppBar(
+      appBar: GradientBlurAppBar(
+        themeKey: themeKey,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: const Text(
           "Csomag Létrehozása",
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -302,62 +314,120 @@ class _CreatePackScreenState extends State<CreatePackScreen> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildPackDropdown(),
-            const SizedBox(height: 20),
-            TextField(
-              controller: packNameController,
-              decoration: InputDecoration(
-                labelText: "Csomag neve",
-                filled: true,
-                fillColor: Theme.of(context).colorScheme.surface,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
+      body: Stack(
+        children: [
+          SeasonalGradientBackground(themeKey: themeKey),
+          if (themeKey == 'christmas') ...[
+            const IgnorePointer(child: SnowfallOverlay()),
+            const IgnorePointer(child: TwinklesOverlay()),
+          ] else ...[
+            const IgnorePointer(child: HoppingBunniesOverlay()),
+            const IgnorePointer(child: PastelFloatersOverlay()),
+          ],
+          Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 900),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Container(
+                  padding: const EdgeInsets.all(16.0),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(16),
+                    border:
+                        Border.all(color: Colors.white.withValues(alpha: 0.12)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _buildPackDropdown(),
+                      const SizedBox(height: 16),
+                      TextField(
+                        controller: packNameController,
+                        decoration: InputDecoration(
+                          labelText: "Csomag neve",
+                          filled: true,
+                          fillColor: Colors.white.withValues(alpha: 0.08),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10.0),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: itemController,
+                              decoration: InputDecoration(
+                                labelText: "Tétel hozzáadása",
+                                filled: true,
+                                fillColor: Colors.white.withValues(alpha: 0.08),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(10.0),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          ElevatedButton.icon(
+                            onPressed: () => _addItem(itemController.text),
+                            icon: const Icon(Icons.add),
+                            label: const Text("Hozzáadás"),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.04),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.06)),
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: _buildItemList(),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SafeArea(
+                        top: false,
+                        child: SizedBox(
+                          height: 48,
+                          child: ElevatedButton.icon(
+                            onPressed: isModified
+                                ? (selectedPackId != null
+                                    ? _updatePack
+                                    : _savePack)
+                                : null,
+                            icon: const Icon(Icons.save_outlined),
+                            label: Text(selectedPackId != null
+                                ? "Csomag frissítése"
+                                : "Csomag mentése"),
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: itemController,
-                    decoration: InputDecoration(
-                      labelText: "Tétel hozzáadása",
-                      filled: true,
-                      fillColor: Theme.of(context).colorScheme.surface,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ElevatedButton.icon(
-                  onPressed: () => _addItem(itemController.text),
-                  icon: const Icon(Icons.add),
-                  label: const Text("Hozzáadás"),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _buildItemList(),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: isModified
-                  ? (selectedPackId != null ? _updatePack : _savePack)
-                  : null,
-              child: Text(selectedPackId != null
-                  ? "Csomag frissítése"
-                  : "Csomag mentése"),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
+
+String _autoThemeKey() {
+  final month = DateTime.now().month;
+  return (month == 10 || month == 11 || month == 12 || month == 1)
+      ? 'christmas'
+      : 'easter';
 }
