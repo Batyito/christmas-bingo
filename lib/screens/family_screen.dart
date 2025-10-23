@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
+import '../core/utils/share_utils.dart';
 import '../services/auth_service.dart';
 import '../services/firestore/firestore_service.dart';
 import '../models/pack.dart';
@@ -13,6 +14,8 @@ import '../widgets/theme_effects/pastel_floaters_overlay.dart';
 import '../widgets/gradient_blur_app_bar.dart';
 // Removed drawer-specific screen imports; navigation now handled via quick_nav_sheet
 import '../widgets/quick_nav_sheet.dart';
+import '../shared/ui/inputs/app_text_field.dart';
+import '../shared/ui/buttons/app_buttons.dart';
 
 class FamilyScreen extends StatefulWidget {
   const FamilyScreen(
@@ -248,20 +251,12 @@ class _FamilyScreenState extends State<FamilyScreen> {
                 const Text(
                     'Még nem vagy egy család tagja. Hozz létre egyet vagy csatlakozz kóddal.'),
                 const SizedBox(height: 12),
-                TextField(
+                AppTextField(
                   controller: _familyNameController,
-                  autofocus: true,
+                  label: 'Család neve',
+                  hint: 'Pl. Mamiék',
                   maxLength: 40,
-                  decoration: const InputDecoration(
-                    labelText: 'Család neve',
-                    hintText: 'Pl. Mamiék',
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (v) {
-                    setState(() {
-                      _familyName = v;
-                    });
-                  },
+                  onChanged: (v) => setState(() => _familyName = v),
                 ),
                 const SizedBox(height: 8),
                 Row(children: [
@@ -405,12 +400,16 @@ class _FamilyScreenState extends State<FamilyScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Csatlakozás meghívó kóddal'),
-        content: TextField(
+        content: AppTextField(
           controller: controller,
-          decoration: const InputDecoration(
-            labelText: 'Kód',
-            hintText: 'Pl. 9UKWDGPIH4',
-          ),
+          label: 'Kód',
+          hint: 'Pl. 9UKWDGPIH4',
+          textCapitalization: TextCapitalization.characters,
+          inputFormatters: [
+            FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
+            UpperCaseTextFormatter(),
+            LengthLimitingTextInputFormatter(12),
+          ],
         ),
         actions: [
           TextButton(
@@ -455,12 +454,10 @@ class _FamilyScreenState extends State<FamilyScreen> {
             Row(
               children: [
                 Expanded(
-                  child: TextField(
+                  child: AppTextField(
                     controller: _inviteEmailController,
-                    decoration: const InputDecoration(
-                      labelText: 'E-mail cím',
-                      border: OutlineInputBorder(),
-                    ),
+                    label: 'E-mail cím',
+                    keyboardType: TextInputType.emailAddress,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -634,8 +631,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
           Row(
             children: [
               Expanded(
-                child: TextField(
-                  decoration: const InputDecoration(labelText: 'Csapat neve'),
+                child: AppTextField(
+                  label: 'Csapat neve',
                   controller: TextEditingController(text: draft.name),
                   onChanged: (v) => draft.name = v,
                 ),
@@ -657,7 +654,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                     .toList(),
               ),
               const SizedBox(width: 8),
-              TextButton.icon(
+              AppOutlinedButton(
                 onPressed: _familyId == null
                     ? null
                     : () async {
@@ -678,20 +675,18 @@ class _FamilyScreenState extends State<FamilyScreen> {
                           ttl: const Duration(days: 30),
                         );
                         final link = _buildInviteLink(code);
-                        await Clipboard.setData(ClipboardData(text: link));
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Meghívó link vágólapra másolva'),
-                            ),
-                          );
-                        }
+                        await ShareUtils.shareOrCopy(
+                          context,
+                          link,
+                          subject: 'Meghívó link',
+                          copyMessage: 'Meghívó link vágólapra másolva',
+                        );
                         setState(() {
                           draft.inviteCode = code;
                         });
                       },
-                icon: const Icon(Icons.link),
-                label: const Text('Link másolása'),
+                icon: Icons.link,
+                child: const Text('Link másolása'),
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outline),
@@ -859,4 +854,16 @@ class _FamilyLite {
   final String name;
   final DocumentSnapshot<Map<String, dynamic>> doc;
   _FamilyLite({required this.id, required this.name, required this.doc});
+}
+
+// Uppercase text input formatter for invite/join codes
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    return newValue.copyWith(
+      text: newValue.text.toUpperCase(),
+      selection: newValue.selection,
+    );
+  }
 }

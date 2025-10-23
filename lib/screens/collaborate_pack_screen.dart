@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/utils/share_utils.dart';
 
 import '../models/pack.dart';
 import '../services/firestore/firestore_service.dart';
@@ -13,6 +14,9 @@ import '../widgets/theme_effects/snowfall_overlay.dart';
 import '../widgets/theme_effects/twinkles_overlay.dart';
 import '../widgets/theme_effects/hopping_bunnies_overlay.dart';
 import '../widgets/theme_effects/pastel_floaters_overlay.dart';
+import '../core/utils/text_utils.dart';
+import '../shared/ui/voting/vote_row.dart';
+import '../shared/ui/buttons/app_buttons.dart';
 
 class CollaboratePackScreen extends StatefulWidget {
   final String? initialPackId;
@@ -86,12 +90,12 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
           .get();
       final existing = <String>{
         for (final d in ps.docs)
-          _normalize((d.data()['name'] ?? '').toString()),
+          normalizeText((d.data()['name'] ?? '').toString()),
       };
       final batch = FirebaseFirestore.instance.batch();
       int toCreate = 0;
       for (final item in pack.items) {
-        final n = _normalize(item.name);
+        final n = normalizeText(item.name);
         if (n.isEmpty || existing.contains(n)) continue;
         final ref = FirebaseFirestore.instance
             .collection('packs')
@@ -160,12 +164,12 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
   }
 
   Future<String?> _findPotentialDuplicate(String packId, String name) async {
-    final normalized = _normalize(name);
+    final normalized = normalizeText(name);
     // Compare with existing pack items
     final pack = _packs.firstWhere((p) => p.id == packId);
     for (final it in pack.items) {
-      final n = _normalize(it.name);
-      if (_isClose(normalized, n)) return it.name;
+      final n = normalizeText(it.name);
+      if (isCloseText(normalized, n)) return it.name;
     }
     // Compare with recent proposals (limit 50)
     final ps = await FirebaseFirestore.instance
@@ -177,7 +181,7 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
         .get();
     for (final d in ps.docs) {
       final other = (d.data()['name'] ?? '').toString();
-      if (_isClose(normalized, _normalize(other))) return other;
+      if (isCloseText(normalized, normalizeText(other))) return other;
     }
     return null;
   }
@@ -276,20 +280,14 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
                             children: [
                               Expanded(child: _buildPackDropdown(context)),
                               const SizedBox(width: 8),
-                              ElevatedButton.icon(
+                              AppPrimaryButton(
                                 onPressed: _selectedPackId == null || _enabling
                                     ? null
                                     : _enableCollab,
                                 icon: _enabling
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
-                                      )
-                                    : const Icon(Icons.group_add_outlined),
-                                label: const Text('Ötletelés engedélyezése'),
+                                    ? Icons.hourglass_empty
+                                    : Icons.group_add_outlined,
+                                child: const Text('Ötletelés engedélyezése'),
                               ),
                             ],
                           ),
@@ -299,43 +297,41 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
                             const SizedBox(height: 6),
                             Row(
                               children: [
-                                OutlinedButton.icon(
+                                AppOutlinedButton(
                                   onPressed: _selectedPackId == null
                                       ? null
-                                      : () {
+                                      : () async {
                                           final link = _buildCollabLink(
                                               _selectedPackId!);
-                                          Clipboard.setData(
-                                              ClipboardData(text: link));
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                                content: Text(
-                                                    'Szerkesztői link másolva.')),
+                                          await ShareUtils.shareOrCopy(
+                                            context,
+                                            link,
+                                            subject: 'Csomag szerkesztői link',
+                                            copyMessage:
+                                                'Szerkesztői link másolva.',
                                           );
                                         },
-                                  icon: const Icon(Icons.share_outlined),
-                                  label:
+                                  icon: Icons.share_outlined,
+                                  child:
                                       const Text('Szerkesztői link másolása'),
                                 ),
                                 const SizedBox(width: 8),
-                                OutlinedButton.icon(
+                                AppOutlinedButton(
                                   onPressed: _shareCode == null
                                       ? null
-                                      : () {
+                                      : () async {
                                           final link =
                                               _buildContribLink(_shareCode!);
-                                          Clipboard.setData(
-                                              ClipboardData(text: link));
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(
-                                            const SnackBar(
-                                                content: Text(
-                                                    'Közreműködői link másolva.')),
+                                          await ShareUtils.shareOrCopy(
+                                            context,
+                                            link,
+                                            subject: 'Közreműködői link',
+                                            copyMessage:
+                                                'Közreműködői link másolva.',
                                           );
                                         },
-                                  icon: const Icon(Icons.public_outlined),
-                                  label:
+                                  icon: Icons.public_outlined,
+                                  child:
                                       const Text('Közreműködői link másolása'),
                                 ),
                               ],
@@ -358,12 +354,12 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              ElevatedButton.icon(
+                              AppPrimaryButton(
                                 onPressed: _selectedPackId == null
                                     ? null
                                     : _submitProposal,
-                                icon: const Icon(Icons.add),
-                                label: const Text('Hozzáadás'),
+                                icon: Icons.add,
+                                child: const Text('Hozzáadás'),
                               ),
                             ],
                           ),
@@ -445,10 +441,11 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
 
   Widget _buildShareCodeRow(BuildContext context, String code) {
     return InkWell(
-      onTap: () {
-        Clipboard.setData(ClipboardData(text: code));
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Kód vágólapra másolva: $code')),
+      onTap: () async {
+        await ShareUtils.copyToClipboard(
+          context,
+          code,
+          message: 'Kód vágólapra másolva: $code',
         );
       },
       child: Container(
@@ -529,7 +526,7 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
                       subtitle: Text(
                           '👍 $likesUp   👎 $likesDown   •   Szint átlag: ${avgLevel.toStringAsFixed(1)}   •   Ismétlés átlag: ${avgTimes.toStringAsFixed(1)}x'),
                     ),
-                    _VoteRow(
+                    VoteRow(
                       packId: id,
                       proposalId: d.id,
                     ),
@@ -544,153 +541,6 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
   }
 }
 
-class _VoteRow extends StatefulWidget {
-  final String packId;
-  final String proposalId;
-  const _VoteRow({required this.packId, required this.proposalId});
-
-  @override
-  State<_VoteRow> createState() => _VoteRowState();
-}
-
-class _VoteRowState extends State<_VoteRow> {
-  bool? _like; // null/true/false
-  int? _level; // 1..5
-  int? _times; // 1..5
-  bool _busy = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadMyVote();
-  }
-
-  Future<void> _loadMyVote() async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-    final ref = FirebaseFirestore.instance
-        .collection('packs')
-        .doc(widget.packId)
-        .collection('proposals')
-        .doc(widget.proposalId)
-        .collection('votes')
-        .doc(uid);
-    final snap = await ref.get();
-    if (!mounted) return;
-    if (snap.exists) {
-      final data = snap.data()!;
-      setState(() {
-        _like = data['like'] as bool?;
-        _level = (data['level'] as int?);
-        _times = (data['times'] as int?);
-      });
-    }
-  }
-
-  Future<void> _vote({bool? like, int? level, int? times}) async {
-    if (_busy) return;
-    setState(() => _busy = true);
-    try {
-      await FirestoreService.instance.voteOnProposal(
-        packId: widget.packId,
-        proposalId: widget.proposalId,
-        uid: FirebaseAuth.instance.currentUser?.uid ?? 'guest',
-        like: like,
-        level: level,
-        times: times,
-      );
-      if (!mounted) return;
-      setState(() {
-        _like = like ?? _like;
-        _level = level ?? _level;
-        _times = times ?? _times;
-      });
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0),
-      child: Row(
-        children: [
-          // Like / Dislike toggle buttons
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: true, icon: Icon(Icons.thumb_up_outlined)),
-              ButtonSegment(
-                  value: false, icon: Icon(Icons.thumb_down_outlined)),
-            ],
-            selected: _like == null ? <bool>{} : {_like!},
-            onSelectionChanged: (sel) {
-              final next = sel.isEmpty ? null : sel.first;
-              _vote(like: next);
-            },
-            multiSelectionEnabled: false,
-            emptySelectionAllowed: true,
-          ),
-          const SizedBox(width: 12),
-          // Level dropdown
-          DropdownButton<int>(
-            value: _level ?? 3,
-            onChanged: (v) {
-              if (v != null) _vote(level: v);
-            },
-            items: List.generate(
-              5,
-              (i) =>
-                  DropdownMenuItem(value: i + 1, child: Text('Szint ${i + 1}')),
-            ),
-          ),
-          const SizedBox(width: 12),
-          // Times stepper
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              children: [
-                IconButton(
-                  tooltip: 'Kevesebb',
-                  icon: const Icon(Icons.remove_circle_outline),
-                  onPressed: () {
-                    final current = _times ?? 1;
-                    final next = (current - 1).clamp(1, 5);
-                    if (next != current) _vote(times: next);
-                  },
-                ),
-                Text('${(_times ?? 1)}x'),
-                IconButton(
-                  tooltip: 'Több',
-                  icon: const Icon(Icons.add_circle_outline),
-                  onPressed: () {
-                    final current = _times ?? 1;
-                    final next = (current + 1).clamp(1, 5);
-                    if (next != current) _vote(times: next);
-                  },
-                ),
-              ],
-            ),
-          ),
-          const Spacer(),
-          if (_busy)
-            const Padding(
-              padding: EdgeInsets.only(right: 12.0),
-              child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2)),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
 String _autoThemeKey() {
   final month = DateTime.now().month;
   return (month == 10 || month == 11 || month == 12 || month == 1)
@@ -698,40 +548,7 @@ String _autoThemeKey() {
       : 'easter';
 }
 
-String _normalize(String s) {
-  final onlyLetters = s
-      .toLowerCase()
-      .replaceAll(RegExp(r'[^a-z0-9áéíóöőúüű\s]'), '')
-      .replaceAll(RegExp(r'\s+'), ' ')
-      .trim();
-  return onlyLetters;
-}
-
-bool _isClose(String a, String b) {
-  if (a == b) return true;
-  if (a.contains(b) || b.contains(a)) return true;
-  return _lev(a, b) <= 2; // small edit distance threshold
-}
-
-int _lev(String a, String b) {
-  if (a.isEmpty) return b.length;
-  if (b.isEmpty) return a.length;
-  final m =
-      List.generate(a.length + 1, (_) => List<int>.filled(b.length + 1, 0));
-  for (var i = 0; i <= a.length; i++) m[i][0] = i;
-  for (var j = 0; j <= b.length; j++) m[0][j] = j;
-  for (var i = 1; i <= a.length; i++) {
-    for (var j = 1; j <= b.length; j++) {
-      final cost = a[i - 1] == b[j - 1] ? 0 : 1;
-      m[i][j] = [
-        m[i - 1][j] + 1,
-        m[i][j - 1] + 1,
-        m[i - 1][j - 1] + cost,
-      ].reduce((v, e) => v < e ? v : e);
-    }
-  }
-  return m[a.length][b.length];
-}
+// Text helpers now provided by core/utils/text_utils.dart: normalizeText, isCloseText, levDistance
 
 String _buildCollabLink(String packId) {
   final base = Uri.base;

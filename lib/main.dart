@@ -3,12 +3,13 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:christmas_bingo/services/init_service.dart';
 import 'package:christmas_bingo/theme.dart';
 import 'package:christmas_bingo/screens/home_screen.dart';
-import 'package:christmas_bingo/screens/invite_screen.dart';
-import 'package:christmas_bingo/screens/collaborate_pack_screen.dart';
-import 'package:christmas_bingo/screens/contribute_by_code_screen.dart';
+// Screen routes are centralized in router/app_router.dart
+import 'package:provider/provider.dart';
+import 'router/app_router.dart';
 import 'firebase_options.dart';
 import 'models/effects_settings.dart';
 import 'services/auth_service.dart';
+import 'services/firestore/firestore_service.dart';
 import 'screens/sign_in_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'dart:async';
@@ -83,43 +84,31 @@ class _MyAppState extends State<MyApp> {
         }
       });
     }
-    return MaterialApp(
-      title: 'Christmas Bingo',
-      theme: _currentTheme,
-      onGenerateRoute: (settings) {
-        final uri = Uri.parse(settings.name ?? '/');
-        if (uri.path == '/invite') {
-          final code = uri.queryParameters['c'] ?? '';
+    final authService = AuthService();
+    return MultiProvider(
+      providers: [
+        Provider<AuthService>.value(value: authService),
+        Provider<FirestoreService>.value(value: FirestoreService.instance),
+      ],
+      child: MaterialApp(
+        title: 'Christmas Bingo',
+        theme: _currentTheme,
+        onGenerateRoute: (settings) {
+          // Delegate to thin custom router first
+          final routed = AppRouter.tryGenerate(settings);
+          if (routed != null) return routed;
+          // Fallback to app shell
           return MaterialPageRoute(
-            builder: (_) => InviteLandingScreen(inviteCode: code),
+            builder: (_) => _AuthGateHome(
+              onThemeChange: _updateTheme,
+              currentThemeKey: _currentThemeKey,
+              effectsSettings: _effects,
+              onEffectsChanged: _updateEffects,
+            ),
             settings: settings,
           );
-        }
-        if (uri.path == '/contribute') {
-          final code =
-              uri.queryParameters['code'] ?? uri.queryParameters['c'] ?? '';
-          return MaterialPageRoute(
-            builder: (_) => ContributeByCodeScreen(initialCode: code),
-            settings: settings,
-          );
-        }
-        if (uri.path == '/collab') {
-          final packId = uri.queryParameters['packId'];
-          return MaterialPageRoute(
-            builder: (_) => CollaboratePackScreen(initialPackId: packId),
-            settings: settings,
-          );
-        }
-        return MaterialPageRoute(
-          builder: (_) => _AuthGateHome(
-            onThemeChange: _updateTheme,
-            currentThemeKey: _currentThemeKey,
-            effectsSettings: _effects,
-            onEffectsChanged: _updateEffects,
-          ),
-          settings: settings,
-        );
-      },
+        },
+      ),
     );
   }
 

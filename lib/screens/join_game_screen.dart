@@ -9,6 +9,7 @@ import '../widgets/theme_effects/hopping_bunnies_overlay.dart';
 import '../widgets/theme_effects/pastel_floaters_overlay.dart';
 import '../widgets/gradient_blur_app_bar.dart';
 import '../widgets/quick_nav_sheet.dart';
+import '../shared/ui/inputs/app_text_field.dart';
 
 class JoinGameScreen extends StatefulWidget {
   const JoinGameScreen({super.key});
@@ -106,23 +107,16 @@ class _JoinGameScreenState extends State<JoinGameScreen> {
           Row(
             children: [
               Expanded(
-                child: TextField(
+                child: AppTextField(
                   controller: _codeController,
+                  label: 'Join code',
+                  hint: 'e.g. 8–12 characters',
                   textCapitalization: TextCapitalization.characters,
                   inputFormatters: [
                     FilteringTextInputFormatter.allow(RegExp(r'[A-Za-z0-9]')),
                     UpperCaseTextFormatter(),
                     LengthLimitingTextInputFormatter(12),
                   ],
-                  decoration: InputDecoration(
-                    labelText: 'Join code',
-                    hintText: 'e.g. 8–12 characters',
-                    filled: true,
-                    fillColor: Colors.white.withValues(alpha: 0.08),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
                 ),
               ),
               const SizedBox(width: 8),

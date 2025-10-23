@@ -6,6 +6,7 @@ import '../widgets/theme_effects/twinkles_overlay.dart';
 import '../widgets/theme_effects/hopping_bunnies_overlay.dart';
 import '../widgets/theme_effects/pastel_floaters_overlay.dart';
 import '../widgets/glassy_panel.dart';
+import '../shared/ui/inputs/app_switch_tile.dart';
 
 class ThemeSettingsScreen extends StatefulWidget {
   final EffectsSettings initial;
@@ -94,19 +95,20 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                         title: Text('Karácsony'),
                         dense: true,
                       ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Hulló hópelyhek'),
+                      AppSwitchTile(
+                        title: 'Hulló hópelyhek',
                         value: _settings.showSnow,
                         onChanged: _toggleSnow,
-                        secondary: const Icon(Icons.ac_unit),
+                        leadingIcon: Icons.ac_unit,
+                        dense: true,
                       ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Csillogások / szikrák'),
+                      const SizedBox(height: 6),
+                      AppSwitchTile(
+                        title: 'Csillogások / szikrák',
                         value: _settings.showTwinkles,
                         onChanged: _toggleTwinkles,
-                        secondary: const Icon(Icons.auto_awesome),
+                        leadingIcon: Icons.auto_awesome,
+                        dense: true,
                       ),
                       const Divider(),
                       const ListTile(
@@ -114,19 +116,20 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                         title: Text('Húsvét'),
                         dense: true,
                       ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Ugráló nyuszik'),
+                      AppSwitchTile(
+                        title: 'Ugráló nyuszik',
                         value: _settings.showBunnies,
                         onChanged: _toggleBunnies,
-                        secondary: const Icon(Icons.pets),
+                        leadingIcon: Icons.pets,
+                        dense: true,
                       ),
-                      SwitchListTile(
-                        contentPadding: EdgeInsets.zero,
-                        title: const Text('Pasztell lebegők'),
+                      const SizedBox(height: 6),
+                      AppSwitchTile(
+                        title: 'Pasztell lebegők',
                         value: _settings.showFloaters,
                         onChanged: _toggleFloaters,
-                        secondary: const Icon(Icons.egg_outlined),
+                        leadingIcon: Icons.egg_outlined,
+                        dense: true,
                       ),
                     ],
                   ),
