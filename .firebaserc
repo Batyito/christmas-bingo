@@ -1,5 +1,10 @@
 {
   "projects": {
+    "default": "christmas-bingo-89281"
+  }
+}
+{
+  "projects": {
     "default": "christmas-bingo-89281",
     "bingo": "bingo-192c2"
   },

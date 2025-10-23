@@ -237,89 +237,68 @@ class _MultiSegmentPainter extends CustomPainter {
     final h = size.height;
     final cx = w / 2;
     final cy = h / 2;
-    final radius = math.min(w, h) / 2;
 
     if (segCount <= 1) return;
 
-    if (segCount == 2) {
-      // Horizontal split: top / bottom
-      final rects = [
-        Rect.fromLTRB(0, 0, w, h / 2),
-        Rect.fromLTRB(0, h / 2, w, h),
-      ];
-      for (int i = 0; i < 2; i++) {
-        paint.color = i < segColors.length ? segColors[i] : Colors.transparent;
-        if (paint.color.opacity > 0) canvas.drawRect(rects[i], paint);
-      }
-      _drawDividers(canvas, size, [Offset(0, h / 2), Offset(w, h / 2)]);
-      return;
-    }
-
-    if (segCount == 4) {
-      // Four quadrants
-      final rects = [
-        Rect.fromLTRB(0, 0, w / 2, h / 2),
-        Rect.fromLTRB(w / 2, 0, w, h / 2),
-        Rect.fromLTRB(0, h / 2, w / 2, h),
-        Rect.fromLTRB(w / 2, h / 2, w, h),
-      ];
-      for (int i = 0; i < 4; i++) {
-        paint.color = i < segColors.length ? segColors[i] : Colors.transparent;
-        if (paint.color.opacity > 0) canvas.drawRect(rects[i], paint);
-      }
-      _drawDividers(canvas, size, [
-        Offset(w / 2, 0),
-        Offset(w / 2, h),
-        Offset(0, h / 2),
-        Offset(w, h / 2),
-      ]);
-      return;
-    }
-
-    // 3 (peace-like) and 5+ (star-like): draw wedge sectors
-    final center = Offset(cx, cy);
-    final ring = Rect.fromCircle(center: center, radius: radius);
+    // Draw wedge sectors (like the circular version) but extend beyond the
+    // cell and let the ClipRRect of the cell trim them to the tile bounds.
+    // Using a very large radius ensures color reaches the edges of the tile.
     final int count = segCount;
     final double sweep = 2 * math.pi / count;
+    final double bigRadius = math.sqrt(w * w + h * h); // larger than diagonal
+    final Rect bigRing = Rect.fromCircle(
+      center: Offset(cx, cy),
+      radius: bigRadius,
+    );
+
     double start = -math.pi / 2; // start at top
     for (int i = 0; i < count; i++) {
       final color = i < segColors.length ? segColors[i] : Colors.transparent;
       if (color.opacity > 0) {
         paint.color = color;
+        // Start point on the ring for the wedge
+        final sx = cx + bigRadius * math.cos(start);
+        final sy = cy + bigRadius * math.sin(start);
         final path = Path()
           ..moveTo(cx, cy)
-          ..arcTo(ring, start, sweep, false)
+          ..lineTo(sx, sy)
+          ..arcTo(bigRing, start, sweep, false)
           ..close();
         canvas.drawPath(path, paint);
       }
       start += sweep;
     }
 
-    // Draw "peace" style divider lines for 3, and starry spokes for 5
+    // Divider spokes between segments (drawn long and clipped by tile)
     final divPaint = Paint()
       ..color = Colors.black.withOpacity(0.25)
       ..strokeWidth = 1.2
       ..style = PaintingStyle.stroke;
-    if (segCount == 3 || segCount >= 5) {
-      double a = -math.pi / 2;
-      for (int i = 0; i < segCount; i++) {
-        final dx = cx + radius * math.cos(a);
-        final dy = cy + radius * math.sin(a);
-        canvas.drawLine(center, Offset(dx, dy), divPaint);
-        a += sweep;
-      }
-      canvas.drawCircle(
-          center, radius, divPaint..color = divPaint.color.withOpacity(0.2));
+    double a = -math.pi / 2;
+    for (int i = 0; i < count; i++) {
+      final dx = cx + bigRadius * math.cos(a);
+      final dy = cy + bigRadius * math.sin(a);
+      canvas.drawLine(Offset(cx, cy), Offset(dx, dy), divPaint);
+      a += sweep;
     }
 
-    // Pulse halo for newly marked teams
+    // Subtle outer stroke
+    final edge = Paint()
+      ..color = Colors.black.withOpacity(0.15)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(Offset.zero & size, edge);
+
+    // Rectangular pulse border retained (clipped by rounded rect)
     if (pulse > 0.0 && pulseTeams.isNotEmpty) {
       final halo = Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 10 * (1 - (pulse.clamp(0.0, 1.0)))
         ..color = Colors.white
             .withOpacity(0.20 * (1 - (pulse - 0.2).clamp(0.0, 1.0)));
-      canvas.drawCircle(center, radius * (0.7 + 0.3 * pulse), halo);
+      final inset = 6 * pulse;
+      final rect = Rect.fromLTWH(inset, inset, w - 2 * inset, h - 2 * inset);
+      canvas.drawRect(rect, halo);
     }
   }
 
