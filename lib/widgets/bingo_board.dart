@@ -209,14 +209,26 @@ class BingoBoardState extends State<BingoBoard>
           child: Center(
             child: Container(
               padding: const EdgeInsets.all(16.0),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.04),
+                border: Border.all(color: Colors.white.withOpacity(0.12)),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.25),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  )
+                ],
+              ),
               child: AspectRatio(
                 aspectRatio: 1,
                 child: GridView.builder(
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 5,
-                    crossAxisSpacing: 4.0,
-                    mainAxisSpacing: 4.0,
+                    crossAxisSpacing: 6.0,
+                    mainAxisSpacing: 6.0,
                     childAspectRatio: 1,
                   ),
                   itemCount: 25,
@@ -253,8 +265,8 @@ class BingoBoardState extends State<BingoBoard>
           child: ConfettiWidget(
             confettiController: _confettiControllerTopLeft,
             blastDirection: 0.785, // Diagonal direction
-            emissionFrequency: 0.05,
-            numberOfParticles: 20,
+            emissionFrequency: 0.03,
+            numberOfParticles: 14,
             shouldLoop: false,
             colors: [Colors.red, Colors.green, Colors.blue, Colors.yellow],
           ),
@@ -264,8 +276,8 @@ class BingoBoardState extends State<BingoBoard>
           child: ConfettiWidget(
             confettiController: _confettiControllerTopRight,
             blastDirection: 2.356, // Diagonal direction
-            emissionFrequency: 0.05,
-            numberOfParticles: 20,
+            emissionFrequency: 0.03,
+            numberOfParticles: 14,
             shouldLoop: false,
             colors: [Colors.red, Colors.green, Colors.blue, Colors.yellow],
           ),
@@ -275,8 +287,8 @@ class BingoBoardState extends State<BingoBoard>
           child: ConfettiWidget(
             confettiController: _confettiControllerBottomLeft,
             blastDirection: -0.785, // Diagonal direction
-            emissionFrequency: 0.05,
-            numberOfParticles: 20,
+            emissionFrequency: 0.03,
+            numberOfParticles: 14,
             shouldLoop: false,
             colors: [Colors.red, Colors.green, Colors.blue, Colors.yellow],
           ),
@@ -286,8 +298,8 @@ class BingoBoardState extends State<BingoBoard>
           child: ConfettiWidget(
             confettiController: _confettiControllerBottomRight,
             blastDirection: -2.356, // Diagonal direction
-            emissionFrequency: 0.05,
-            numberOfParticles: 20,
+            emissionFrequency: 0.03,
+            numberOfParticles: 14,
             shouldLoop: false,
             colors: [Colors.red, Colors.green, Colors.blue, Colors.yellow],
           ),
@@ -300,20 +312,40 @@ class BingoBoardState extends State<BingoBoard>
         if (_showBingoText)
           ScaleTransition(
             scale: _bingoAnimationScale,
-            child: Text(
-              "BINGO!",
-              style: TextStyle(
-                fontSize: 100,
-                fontWeight: FontWeight.bold,
-                color: Colors.red,
-                shadows: [
-                  Shadow(
-                    offset: Offset(3, 3),
-                    blurRadius: 5,
-                    color: Colors.black54,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.white.withOpacity(0.25)),
                   ),
-                ],
-              ),
+                ),
+                ShaderMask(
+                  shaderCallback: (rect) {
+                    return const LinearGradient(
+                      colors: [
+                        Color(0xFFFF4D4D),
+                        Color(0xFFFFB347),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ).createShader(rect);
+                  },
+                  blendMode: BlendMode.srcIn,
+                  child: const Text(
+                    'BINGO!',
+                    style: TextStyle(
+                      fontSize: 100,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
       ],

@@ -157,36 +157,39 @@ class _BingoCellState extends State<BingoCell>
                 ),
               ),
             ),
-            // Stamp pop for current team
+            // Stamp pop for current team - move to top-right as a subtle ribbon
             if (_pulseTeams.contains(widget.currentTeamId))
-              Center(
+              Positioned(
+                right: 6,
+                top: 6,
                 child: FadeTransition(
                   opacity: _opacity,
                   child: ScaleTransition(
                     scale: _scale,
                     child: Transform.rotate(
-                      angle: -0.12,
+                      angle: -0.35,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 6),
+                            horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: (widget.teamColors[widget.currentTeamId] ??
                                   Colors.white)
-                              .withOpacity(0.15),
+                              .withOpacity(0.18),
                           border: Border.all(
                             color: (widget.teamColors[widget.currentTeamId] ??
                                     Colors.white)
                                 .withOpacity(0.9),
-                            width: 2,
+                            width: 1.6,
                           ),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Text(
                           'STAMP',
                           style: TextStyle(
                             fontWeight: FontWeight.w900,
-                            letterSpacing: 2,
+                            letterSpacing: 1.5,
                             color: Colors.white,
+                            fontSize: 10,
                           ),
                         ),
                       ),

@@ -317,14 +317,29 @@ class _GameScreenState extends State<GameScreen> {
                     child: Row(
                       children: teamDocs.map((d) {
                         final color = dynamicTeamColors[d.id] ?? Colors.grey;
-                        return Container(
+                        final bool isCurrent = d.id == widget.teamId;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
                           margin: const EdgeInsets.only(right: 8),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 6),
+                              horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.25),
-                            border: Border.all(color: color.withOpacity(0.7)),
+                            color: color.withOpacity(isCurrent ? 0.3 : 0.18),
+                            border: Border.all(
+                                color: isCurrent
+                                    ? Colors.white.withOpacity(0.9)
+                                    : color.withOpacity(0.6),
+                                width: isCurrent ? 2 : 1),
                             borderRadius: BorderRadius.circular(999),
+                            boxShadow: isCurrent
+                                ? [
+                                    BoxShadow(
+                                      color: color.withOpacity(0.35),
+                                      blurRadius: 10,
+                                      spreadRadius: 1,
+                                    )
+                                  ]
+                                : null,
                           ),
                           child: Row(
                             children: [
@@ -336,8 +351,10 @@ class _GameScreenState extends State<GameScreen> {
                                     color: color, shape: BoxShape.circle),
                               ),
                               Text(d.id,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold)),
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w800,
+                                      color: Colors.white
+                                          .withOpacity(isCurrent ? 1 : 0.95))),
                             ],
                           ),
                         );
@@ -487,14 +504,29 @@ class _GameScreenState extends State<GameScreen> {
                       child: Row(
                         children: teamDocs.map((d) {
                           final color = dynamicTeamColors[d.id] ?? Colors.grey;
-                          return Container(
+                          final bool isCurrent = d.id == widget.teamId;
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
                             margin: const EdgeInsets.only(right: 8),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 10, vertical: 6),
+                                horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: color.withOpacity(0.25),
-                              border: Border.all(color: color.withOpacity(0.7)),
+                              color: color.withOpacity(isCurrent ? 0.3 : 0.18),
+                              border: Border.all(
+                                  color: isCurrent
+                                      ? Colors.white.withOpacity(0.9)
+                                      : color.withOpacity(0.6),
+                                  width: isCurrent ? 2 : 1),
                               borderRadius: BorderRadius.circular(999),
+                              boxShadow: isCurrent
+                                  ? [
+                                      BoxShadow(
+                                        color: color.withOpacity(0.35),
+                                        blurRadius: 10,
+                                        spreadRadius: 1,
+                                      )
+                                    ]
+                                  : null,
                             ),
                             child: Row(
                               children: [
@@ -506,8 +538,10 @@ class _GameScreenState extends State<GameScreen> {
                                       color: color, shape: BoxShape.circle),
                                 ),
                                 Text(d.id,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white.withOpacity(
+                                            isCurrent ? 1 : 0.95))),
                               ],
                             ),
                           );
