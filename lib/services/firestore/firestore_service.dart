@@ -14,10 +14,13 @@ part 'family_service_part.dart';
 part 'user_service_part.dart';
 
 class FirestoreService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Access Firestore lazily to avoid touching Firebase before initializeApp().
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   FirestoreService._privateConstructor();
 
-  static final FirestoreService instance =
-      FirestoreService._privateConstructor();
+  // Make the singleton lazy to prevent eager access during import time.
+  static FirestoreService? _instance;
+  static FirestoreService get instance =>
+      _instance ??= FirestoreService._privateConstructor();
 }

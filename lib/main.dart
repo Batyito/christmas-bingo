@@ -8,6 +8,9 @@ import 'firebase_options.dart';
 import 'models/effects_settings.dart';
 import 'services/auth_service.dart';
 import 'screens/sign_in_screen.dart';
+import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,9 +18,6 @@ void main() async {
     options: DefaultFirebaseOptions
         .currentPlatform, // Ensure platform-specific Firebase config
   );
-
-  final initService = InitService();
-  await initService.initializeDefaultData();
 
   runApp(MyApp());
 }
@@ -33,6 +33,7 @@ class _MyAppState extends State<MyApp> {
   ThemeData _currentTheme = _getThemeForCurrentDate();
   String _currentThemeKey = _detectThemeKeyForCurrentDate();
   EffectsSettings _effects = const EffectsSettings();
+  bool _didRunInit = false;
 
   static ThemeData _getThemeForCurrentDate() {
     final DateTime now = DateTime.now();
@@ -58,6 +59,28 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Kick off any startup initialization that touches plugins (e.g., Firestore)
+    // only after the first frame, to ensure the engine and platform threads are ready.
+    if (!_didRunInit) {
+      _didRunInit = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          // On Windows, add a tiny delay to avoid executing too early during startup.
+          if (defaultTargetPlatform == TargetPlatform.windows) {
+            await Future<void>.delayed(const Duration(milliseconds: 200));
+          }
+          final initService = InitService();
+          await initService.initializeDefaultData();
+        } catch (e) {
+          // Best-effort init; ignore failures in release, but log in debug.
+          assert(() {
+            // ignore: avoid_print
+            print('InitService initializeDefaultData error: $e');
+            return true;
+          }());
+        }
+      });
+    }
     return MaterialApp(
       title: 'Christmas Bingo',
       theme: _currentTheme,
@@ -114,7 +137,7 @@ class _MyAppState extends State<MyApp> {
   }
 }
 
-class _AuthGateHome extends StatelessWidget {
+class _AuthGateHome extends StatefulWidget {
   final ValueChanged<String> onThemeChange;
   final String currentThemeKey;
   final EffectsSettings effectsSettings;
@@ -126,24 +149,54 @@ class _AuthGateHome extends StatelessWidget {
     required this.onEffectsChanged,
   });
 
+  @override
+  State<_AuthGateHome> createState() => _AuthGateHomeState();
+}
+
+class _AuthGateHomeState extends State<_AuthGateHome> {
   final _auth = AuthService();
+  StreamSubscription? _authSub;
+  Timer? _poller;
+  User? _user;
+
+  @override
+  void initState() {
+    super.initState();
+    _user = _auth.currentUser;
+    // Workaround for Windows: avoid auth streams which can crash due to
+    // platform-thread channel issues in desktop plugins. Poll instead.
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      _poller = Timer.periodic(const Duration(milliseconds: 700), (_) {
+        final u = _auth.currentUser;
+        if (u?.uid != _user?.uid) {
+          setState(() => _user = u);
+        }
+      });
+    } else {
+      _authSub = _auth.authState.listen((u) {
+        setState(() => _user = u);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    _poller?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder(
-      stream: _auth.authState,
-      builder: (context, snapshot) {
-        final user = _auth.currentUser;
-        if (user == null) {
-          return const SignInScreen();
-        }
-        return HomeScreen(
-          onThemeChange: onThemeChange,
-          currentThemeKey: currentThemeKey,
-          effectsSettings: effectsSettings,
-          onEffectsChanged: onEffectsChanged,
-        );
-      },
+    final user = _user;
+    if (user == null) {
+      return const SignInScreen();
+    }
+    return HomeScreen(
+      onThemeChange: widget.onThemeChange,
+      currentThemeKey: widget.currentThemeKey,
+      effectsSettings: widget.effectsSettings,
+      onEffectsChanged: widget.onEffectsChanged,
     );
   }
 }

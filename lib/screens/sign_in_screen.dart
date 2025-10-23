@@ -201,15 +201,8 @@ class _SignInScreenState extends State<SignInScreen> {
       if (e.code == 'internal-error') {
         msg =
             'Sign-in failed due to a backend configuration issue. Please check that Email/Password is enabled in Firebase Authentication and that your app is connected.';
-        // Probe sign-in methods to hint if Email/Password is disabled
-        try {
-          final methods = await FirebaseAuth.instance
-              .fetchSignInMethodsForEmail(_emailController.text.trim());
-          if (!methods.contains('password')) {
-            msg =
-                'Email/Password authentication is disabled for this Firebase project. Enable it in Firebase Console > Authentication > Sign-in method.';
-          }
-        } catch (_) {}
+        // Note: fetchSignInMethodsForEmail has been removed in latest SDKs.
+        // We avoid probing and provide a general guidance instead.
       } else if (e.code == 'operation-not-allowed') {
         msg =
             'Email/Password is not enabled for this project. Enable it in Firebase Console > Authentication > Sign-in method.';

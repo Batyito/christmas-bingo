@@ -238,6 +238,7 @@ class BingoBoardState extends State<BingoBoard>
                         teamColors: widget.teamColors,
                         isMatching: isMatching,
                         currentTeamId: widget.teamId,
+                        teamOrder: widget.teamColors.keys.toList(),
                       ),
                     );
                   },

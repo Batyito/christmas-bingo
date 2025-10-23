@@ -2,7 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 class InitService {
-  final FirebaseFirestore _db = FirebaseFirestore.instance;
+  // Lazily access Firestore to ensure Firebase is initialized first
+  FirebaseFirestore get _db => FirebaseFirestore.instance;
 
   Future<void> initializeDefaultData() async {
     await _createDefaultPacks();
@@ -52,7 +53,6 @@ class InitService {
       {"name": "Egyél/egyetek még 🥗", "level": 1},
       {"name": "Utalás a gyerekre 👶🍼", "level": 2},
       {"name": "Minaret 🕌", "level": 5},
-
     ];
 
     // Check if the pack already exists
