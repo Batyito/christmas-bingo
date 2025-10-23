@@ -341,6 +341,52 @@ class _CreatePackScreenState extends State<CreatePackScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildPackDropdown(),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Tölts be egy meglévő csomagot vagy adj meg egy újat.',
+                              style: TextStyle(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .onSurface
+                                    .withOpacity(0.8),
+                              ),
+                            ),
+                          ),
+                          if (selectedPackId != null)
+                            OutlinedButton.icon(
+                              onPressed: () async {
+                                // Build items from proposals/votes and load here
+                                final items = await _firestoreService
+                                    .buildConsensusItems(selectedPackId!);
+                                if (!mounted) return;
+                                if (items.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Nincs elegendő javaslat/szavazat a betöltéshez.'),
+                                    ),
+                                  );
+                                } else {
+                                  setState(() {
+                                    this.items = items;
+                                    isModified = true;
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                          'Betöltve a szavazatok alapján.'),
+                                    ),
+                                  );
+                                }
+                              },
+                              icon: const Icon(Icons.download_outlined),
+                              label: const Text('Betöltés szavazatokból'),
+                            ),
+                        ],
+                      ),
                       const SizedBox(height: 16),
                       TextField(
                         controller: packNameController,

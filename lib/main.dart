@@ -4,6 +4,8 @@ import 'package:christmas_bingo/services/init_service.dart';
 import 'package:christmas_bingo/theme.dart';
 import 'package:christmas_bingo/screens/home_screen.dart';
 import 'package:christmas_bingo/screens/invite_screen.dart';
+import 'package:christmas_bingo/screens/collaborate_pack_screen.dart';
+import 'package:christmas_bingo/screens/contribute_by_code_screen.dart';
 import 'firebase_options.dart';
 import 'models/effects_settings.dart';
 import 'services/auth_service.dart';
@@ -90,6 +92,21 @@ class _MyAppState extends State<MyApp> {
           final code = uri.queryParameters['c'] ?? '';
           return MaterialPageRoute(
             builder: (_) => InviteLandingScreen(inviteCode: code),
+            settings: settings,
+          );
+        }
+        if (uri.path == '/contribute') {
+          final code =
+              uri.queryParameters['code'] ?? uri.queryParameters['c'] ?? '';
+          return MaterialPageRoute(
+            builder: (_) => ContributeByCodeScreen(initialCode: code),
+            settings: settings,
+          );
+        }
+        if (uri.path == '/collab') {
+          final packId = uri.queryParameters['packId'];
+          return MaterialPageRoute(
+            builder: (_) => CollaboratePackScreen(initialPackId: packId),
             settings: settings,
           );
         }

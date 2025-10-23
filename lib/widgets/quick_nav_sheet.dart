@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../screens/create_game_screen.dart';
 import '../screens/create_pack_screen.dart';
+import '../screens/collaborate_pack_screen.dart';
+import '../screens/contribute_by_code_screen.dart';
 import '../screens/family_screen.dart';
 import '../screens/join_game_screen.dart';
 import '../screens/theme_settings_screen.dart';
@@ -91,6 +93,17 @@ Future<void> showQuickNavSheet(
                   },
                 ),
                 ListTile(
+                  leading: const Icon(Icons.groups_2_outlined),
+                  title: const Text('Közös csomag ötletelés'),
+                  onTap: () {
+                    close();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const CollaboratePackScreen()),
+                    );
+                  },
+                ),
+                ListTile(
                   leading: const Icon(Icons.family_restroom_outlined),
                   title: const Text('Család'),
                   onTap: () {
@@ -109,6 +122,17 @@ Future<void> showQuickNavSheet(
                       Navigator.of(context)
                           .pushNamedAndRemoveUntil('/', (r) => false);
                     }
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.volunteer_activism_outlined),
+                  title: const Text('Közreműködés kóddal'),
+                  onTap: () {
+                    close();
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                          builder: (_) => const ContributeByCodeScreen()),
+                    );
                   },
                 ),
                 ListTile(
