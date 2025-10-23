@@ -22,9 +22,11 @@
 
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="christmas_bingo">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Christmas Bingo">
+  <meta name="theme-color" content="#0175C2">
+  <!-- Prefer 180x180 for iOS; fallback to 192 if 180 is not available -->
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
@@ -32,8 +34,37 @@
   <title>christmas_bingo</title>
   <link rel="manifest" href="manifest.json">
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <style>
+    /* Lightweight iOS install banner (only shown via JS on iOS non-standalone) */
+    #ios-install-banner {display:none; position: fixed; left: 50%; transform: translateX(-50%); bottom: 16px; z-index: 9999; background: rgba(0,0,0,0.65); color: #fff; padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.25); box-shadow: 0 6px 20px rgba(0,0,0,0.35); font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; }
+    #ios-install-banner button { margin-left: 8px; background: transparent; border: 1px solid rgba(255,255,255,0.5); color: #fff; padding: 4px 8px; border-radius: 8px; }
+  </style>
 </head>
 <body>
+  <div id="ios-install-banner">
+    Install Christmas Bingo: open Share and tap "Add to Home Screen".
+    <button id="ios-install-dismiss">Dismiss</button>
+  </div>
+  <script>
+    (function() {
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator.standalone === true);
+      if (isIOS && !isStandalone) {
+        const el = document.getElementById('ios-install-banner');
+        const btn = document.getElementById('ios-install-dismiss');
+        if (el && btn) {
+          // Only show once per session
+          if (!sessionStorage.getItem('ios_banner_dismissed')) {
+            el.style.display = 'inline-flex';
+            btn.addEventListener('click', function() {
+              el.style.display = 'none';
+              sessionStorage.setItem('ios_banner_dismissed', '1');
+            });
+          }
+        }
+      }
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>

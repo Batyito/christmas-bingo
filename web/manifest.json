@@ -1,11 +1,12 @@
 {
-    "name": "christmas_bingo",
-    "short_name": "christmas_bingo",
-    "start_url": ".",
+    "name": "Christmas Bingo",
+    "short_name": "Bingo",
+    "start_url": "./?source=pwa",
+    "scope": "./",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Play Christmas Bingo with your family across devices.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
