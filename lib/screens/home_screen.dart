@@ -73,7 +73,10 @@ class HomeScreen extends StatelessWidget {
               final updated = await Navigator.push<EffectsSettings>(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => ThemeSettingsScreen(initial: effectsSettings),
+                  builder: (_) => ThemeSettingsScreen(
+                    initial: effectsSettings,
+                    themeKey: currentThemeKey,
+                  ),
                 ),
               );
               if (updated != null) {

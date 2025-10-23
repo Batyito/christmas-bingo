@@ -302,16 +302,6 @@ class _MultiSegmentPainter extends CustomPainter {
     }
   }
 
-  void _drawDividers(Canvas canvas, Size size, List<Offset> points) {
-    final p = Paint()
-      ..color = Colors.black.withOpacity(0.25)
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-    for (int i = 0; i < points.length; i += 2) {
-      canvas.drawLine(points[i], points[i + 1], p);
-    }
-  }
-
   @override
   bool shouldRepaint(covariant _MultiSegmentPainter oldDelegate) {
     return oldDelegate.segColors != segColors ||

@@ -158,6 +158,36 @@ extension FamilyService on FirestoreService {
     });
   }
 
+  /// Leave a family: removes the user from members and from any team participants.
+  /// If the user is the owner, this will throw to avoid orphaning ownership.
+  Future<void> leaveFamily(
+      {required String familyId, required String uid}) async {
+    final famRef = _db.collection('families').doc(familyId);
+    final famSnap = await famRef.get();
+    if (!famSnap.exists) return;
+    final data = famSnap.data() as Map<String, dynamic>;
+    final ownerId = data['ownerId']?.toString();
+    if (ownerId == uid) {
+      throw Exception(
+          'A család tulajdonosa nem léphet ki. Adj át tulajdonjogot vagy töröld a családot.');
+    }
+    // Remove from family members
+    await famRef.update({
+      'members': FieldValue.arrayRemove([uid])
+    });
+
+    // Remove from any team participants
+    final teams = await famRef
+        .collection('teams')
+        .where('participants', arrayContains: uid)
+        .get();
+    for (final t in teams.docs) {
+      await t.reference.update({
+        'participants': FieldValue.arrayRemove([uid])
+      });
+    }
+  }
+
   // STREAMS & HELPERS
   Stream<QuerySnapshot<Map<String, dynamic>>> streamFamiliesForUser(
       String uid) {

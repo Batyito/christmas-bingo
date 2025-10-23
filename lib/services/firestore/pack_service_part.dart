@@ -126,7 +126,7 @@ extension PackService on FirestoreService {
       final propSnap = await tx.get(propRef);
       if (!propSnap.exists) throw Exception('Proposal not found');
       final voteSnap = await tx.get(voteRef);
-      final prev = voteSnap.data() as Map<String, dynamic>?;
+      final prev = voteSnap.data();
 
       int likesUpDelta = 0;
       int likesDownDelta = 0;

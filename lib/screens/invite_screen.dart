@@ -3,8 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_service.dart';
 import '../services/firestore/firestore_service.dart';
 import 'sign_in_screen.dart';
-import '../models/effects_settings.dart';
-import 'home_screen.dart';
 import '../widgets/theme_effects/seasonal_gradient_background.dart';
 import '../widgets/theme_effects/twinkles_overlay.dart';
 import '../widgets/theme_effects/snowfall_overlay.dart';

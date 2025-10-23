@@ -180,10 +180,12 @@ class _ContributeByCodeScreenState extends State<ContributeByCodeScreen> {
               constraints: const BoxConstraints(maxWidth: 900),
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
-                child: GlassyPanel(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: SizedBox.expand(
+                  child: GlassyPanel(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.max,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Row(
                         children: [
@@ -575,6 +577,7 @@ class _VoteRowState extends State<_VoteRow> {
               _vote(like: next);
             },
             multiSelectionEnabled: false,
+            emptySelectionAllowed: true,
           ),
           const SizedBox(width: 12),
           DropdownButton<int>(

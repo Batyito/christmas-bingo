@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/pack.dart';
-import '../models/bingo_item.dart';
 import '../services/firestore/firestore_service.dart';
 import '../widgets/gradient_blur_app_bar.dart';
 import '../widgets/glassy_panel.dart';
@@ -67,8 +66,57 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
       final code = await _fs.getOrCreatePackContribCode(id);
       if (!mounted) return;
       setState(() => _shareCode = code);
+      // Ensure existing pack items are present as proposals to allow voting on them
+      await _seedProposalsFromExistingItems(id);
     } catch (_) {
       // ignore for now
+    }
+  }
+
+  /// Seed proposals collection from existing pack items so collaborators can
+  /// vote on items that already exist in the pack.
+  Future<void> _seedProposalsFromExistingItems(String packId) async {
+    try {
+      final pack = _packs.firstWhere((p) => p.id == packId);
+      // Read existing proposals to avoid duplicates
+      final ps = await FirebaseFirestore.instance
+          .collection('packs')
+          .doc(packId)
+          .collection('proposals')
+          .get();
+      final existing = <String>{
+        for (final d in ps.docs)
+          _normalize((d.data()['name'] ?? '').toString()),
+      };
+      final batch = FirebaseFirestore.instance.batch();
+      int toCreate = 0;
+      for (final item in pack.items) {
+        final n = _normalize(item.name);
+        if (n.isEmpty || existing.contains(n)) continue;
+        final ref = FirebaseFirestore.instance
+            .collection('packs')
+            .doc(packId)
+            .collection('proposals')
+            .doc();
+        batch.set(ref, {
+          'name': item.name,
+          'createdBy': 'seed-existing',
+          'createdAt': FieldValue.serverTimestamp(),
+          'likesUp': 0,
+          'likesDown': 0,
+          'levelSum': 0,
+          'levelCount': 0,
+          'timesSum': 0,
+          'timesCount': 0,
+          'seeded': true,
+        });
+        toCreate++;
+      }
+      if (toCreate > 0) {
+        await batch.commit();
+      }
+    } catch (_) {
+      // no-op; seeding is best-effort
     }
   }
 
@@ -217,136 +265,141 @@ class _CollaboratePackScreenState extends State<CollaboratePackScreen> {
                 constraints: const BoxConstraints(maxWidth: 1000),
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: GlassyPanel(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(child: _buildPackDropdown(context)),
-                            const SizedBox(width: 8),
-                            ElevatedButton.icon(
-                              onPressed: _selectedPackId == null || _enabling
-                                  ? null
-                                  : _enableCollab,
-                              icon: _enabling
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.group_add_outlined),
-                              label: const Text('Ötletelés engedélyezése'),
-                            ),
-                          ],
-                        ),
-                        if (_shareCode != null) ...[
-                          const SizedBox(height: 8),
-                          _buildShareCodeRow(context, _shareCode!),
-                          const SizedBox(height: 6),
+                  child: SizedBox.expand(
+                    child: GlassyPanel(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.max,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                           Row(
                             children: [
-                              OutlinedButton.icon(
-                                onPressed: _selectedPackId == null
-                                    ? null
-                                    : () {
-                                        final link =
-                                            _buildCollabLink(_selectedPackId!);
-                                        Clipboard.setData(
-                                            ClipboardData(text: link));
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'Szerkesztői link másolva.')),
-                                        );
-                                      },
-                                icon: const Icon(Icons.share_outlined),
-                                label: const Text('Szerkesztői link másolása'),
-                              ),
+                              Expanded(child: _buildPackDropdown(context)),
                               const SizedBox(width: 8),
-                              OutlinedButton.icon(
-                                onPressed: _shareCode == null
+                              ElevatedButton.icon(
+                                onPressed: _selectedPackId == null || _enabling
                                     ? null
-                                    : () {
-                                        final link =
-                                            _buildContribLink(_shareCode!);
-                                        Clipboard.setData(
-                                            ClipboardData(text: link));
-                                        ScaffoldMessenger.of(context)
-                                            .showSnackBar(
-                                          const SnackBar(
-                                              content: Text(
-                                                  'Közreműködői link másolva.')),
-                                        );
-                                      },
-                                icon: const Icon(Icons.public_outlined),
-                                label: const Text('Közreműködői link másolása'),
+                                    : _enableCollab,
+                                icon: _enabling
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(Icons.group_add_outlined),
+                                label: const Text('Ötletelés engedélyezése'),
                               ),
                             ],
                           ),
-                        ],
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _proposalController,
-                                decoration: InputDecoration(
-                                  labelText: 'Új javaslat (tétel neve)',
-                                  filled: true,
-                                  fillColor: Colors.white.withOpacity(0.06),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(10.0),
+                          if (_shareCode != null) ...[
+                            const SizedBox(height: 8),
+                            _buildShareCodeRow(context, _shareCode!),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: _selectedPackId == null
+                                      ? null
+                                      : () {
+                                          final link = _buildCollabLink(
+                                              _selectedPackId!);
+                                          Clipboard.setData(
+                                              ClipboardData(text: link));
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    'Szerkesztői link másolva.')),
+                                          );
+                                        },
+                                  icon: const Icon(Icons.share_outlined),
+                                  label:
+                                      const Text('Szerkesztői link másolása'),
+                                ),
+                                const SizedBox(width: 8),
+                                OutlinedButton.icon(
+                                  onPressed: _shareCode == null
+                                      ? null
+                                      : () {
+                                          final link =
+                                              _buildContribLink(_shareCode!);
+                                          Clipboard.setData(
+                                              ClipboardData(text: link));
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text(
+                                                    'Közreműködői link másolva.')),
+                                          );
+                                        },
+                                  icon: const Icon(Icons.public_outlined),
+                                  label:
+                                      const Text('Közreműködői link másolása'),
+                                ),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: TextField(
+                                  controller: _proposalController,
+                                  decoration: InputDecoration(
+                                    labelText: 'Új javaslat (tétel neve)',
+                                    filled: true,
+                                    fillColor: Colors.white.withOpacity(0.06),
+                                    border: OutlineInputBorder(
+                                      borderRadius: BorderRadius.circular(10.0),
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton.icon(
-                              onPressed: _selectedPackId == null
-                                  ? null
-                                  : _submitProposal,
-                              icon: const Icon(Icons.add),
-                              label: const Text('Hozzáadás'),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.04),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                  color: Colors.white.withOpacity(0.06)),
-                            ),
-                            padding: const EdgeInsets.all(8),
-                            child: _buildProposalsList(),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        SafeArea(
-                          top: false,
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _selectedPackId == null
-                                      ? null
-                                      : _importConsensusIntoPack,
-                                  icon: const Icon(Icons.download_outlined),
-                                  label: const Text(
-                                      'Importálás szavazatokból a csomagba'),
-                                ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
+                                onPressed: _selectedPackId == null
+                                    ? null
+                                    : _submitProposal,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Hozzáadás'),
                               ),
                             ],
                           ),
-                        )
-                      ],
+                          const SizedBox(height: 12),
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.04),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: Colors.white.withOpacity(0.06)),
+                              ),
+                              padding: const EdgeInsets.all(8),
+                              child: _buildProposalsList(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SafeArea(
+                            top: false,
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _selectedPackId == null
+                                        ? null
+                                        : _importConsensusIntoPack,
+                                    icon: const Icon(Icons.download_outlined),
+                                    label: const Text(
+                                        'Importálás szavazatokból a csomagba'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -576,6 +629,7 @@ class _VoteRowState extends State<_VoteRow> {
               _vote(like: next);
             },
             multiSelectionEnabled: false,
+            emptySelectionAllowed: true,
           ),
           const SizedBox(width: 12),
           // Level dropdown

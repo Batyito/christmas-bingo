@@ -158,6 +158,7 @@ Future<void> showQuickNavSheet(
                       MaterialPageRoute(
                         builder: (_) => ThemeSettingsScreen(
                           initial: effects ?? const EffectsSettings(),
+                          themeKey: currentThemeKey,
                         ),
                       ),
                     );

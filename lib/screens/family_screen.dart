@@ -38,6 +38,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
   Map<String, String> _displayNames = {}; // uid -> displayName
   List<String> _packIds = [];
   List<Pack> _allPacks = [];
+  // Multiple families support
+  List<_FamilyLite> _families = [];
 
   final _inviteEmailController = TextEditingController();
   bool _creatingFamily = false;
@@ -74,18 +76,24 @@ class _FamilyScreenState extends State<FamilyScreen> {
     if (uid == null) return;
     // load packs
     _allPacks = await _fs.fetchPacks();
-    // try owned family first
-    final owned = await _fs.getOwnedFamily(uid);
-    if (owned != null) {
-      _bindFamilyDoc(owned);
-      return;
-    }
-    // else listen to a family that user belongs to
-    _fs.streamFamiliesForUser(uid).first.then((snap) async {
-      if (snap.docs.isNotEmpty) {
-        _bindFamilyDoc(snap.docs.first);
+    // Subscribe to all families where user is a member and keep local list
+    _fs.streamFamiliesForUser(uid).listen((snap) async {
+      _families = [
+        for (final d in snap.docs)
+          _FamilyLite(
+              id: d.id, name: (d.data()['name'] ?? '').toString(), doc: d)
+      ];
+      // If current selection missing, pick first available, else keep selection
+      if (_families.isEmpty) {
+        _familyId = null;
+        setState(() {});
+        return;
+      }
+      final keep = _families.any((f) => f.id == _familyId);
+      if (!keep) {
+        _bindFamilyDoc(_families.first.doc);
       } else {
-        setState(() {}); // show create form
+        setState(() {});
       }
     });
   }
@@ -117,17 +125,23 @@ class _FamilyScreenState extends State<FamilyScreen> {
 
   Future<void> _loadDisplayNames() async {
     if (_memberUids.isEmpty) return;
-    final users = await FirebaseFirestore.instance
-        .collection('users')
-        .where(FieldPath.documentId, whereIn: _memberUids.take(10).toList())
-        .get();
-    // Note: Firestore whereIn max 10; for >10 members, chunking could be added later
-    _displayNames = {
-      for (final d in users.docs)
-        d.id: (d.data()['displayName']?.toString() ??
+    final col = FirebaseFirestore.instance.collection('users');
+    final List<QuerySnapshot<Map<String, dynamic>>> snaps = [];
+    const chunk = 10;
+    for (var i = 0; i < _memberUids.length; i += chunk) {
+      final ids = _memberUids.skip(i).take(chunk).toList();
+      final s = await col.where(FieldPath.documentId, whereIn: ids).get();
+      snaps.add(s);
+    }
+    final Map<String, String> out = {};
+    for (final s in snaps) {
+      for (final d in s.docs) {
+        out[d.id] = (d.data()['displayName']?.toString() ??
             d.data()['email']?.toString() ??
-            d.id)
-    };
+            d.id);
+      }
+    }
+    _displayNames = out;
   }
 
   @override
@@ -136,13 +150,42 @@ class _FamilyScreenState extends State<FamilyScreen> {
     return Scaffold(
       appBar: GradientBlurAppBar(
         themeKey: widget.currentThemeKey,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 8.0),
-          child: widget.currentThemeKey == 'christmas'
-              ? const Text('🎄', style: TextStyle(fontSize: 22))
-              : const Text('🐣', style: TextStyle(fontSize: 22)),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.of(context).maybePop(),
+          tooltip: 'Vissza',
         ),
-        title: const Text('Család'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Család'),
+            if (_familyName.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.12),
+                  ),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.home, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      _familyName,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ]
+          ],
+        ),
         actions: [
           IconButton(
             tooltip: 'Gyors menü',
@@ -160,9 +203,8 @@ class _FamilyScreenState extends State<FamilyScreen> {
           SeasonalGradientBackground(themeKey: widget.currentThemeKey),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: _familyId == null
-                ? _buildCreateFamily(uid)
-                : _buildManageFamily(),
+            child:
+                _familyId == null ? _buildNoFamily(uid) : _buildManageFamily(),
           ),
           if (widget.currentThemeKey == 'christmas') ...[
             if (widget.effectsSettings.showSnow)
@@ -181,7 +223,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
     );
   }
 
-  Widget _buildCreateFamily(String? uid) {
+  Widget _buildNoFamily(String? uid) {
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 600),
@@ -195,15 +237,16 @@ class _FamilyScreenState extends State<FamilyScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: const [
-                    Icon(Icons.family_restroom, size: 20),
-                    SizedBox(width: 8),
-                    Text('Hozz létre egy családot',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold)),
-                  ],
-                ),
+                Row(children: const [
+                  Icon(Icons.family_restroom, size: 20),
+                  SizedBox(width: 8),
+                  Text('Családok',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                ]),
+                const SizedBox(height: 8),
+                const Text(
+                    'Még nem vagy egy család tagja. Hozz létre egyet vagy csatlakozz kóddal.'),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _familyNameController,
@@ -221,10 +264,9 @@ class _FamilyScreenState extends State<FamilyScreen> {
                   },
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    ElevatedButton.icon(
+                Row(children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
                       onPressed: uid == null ||
                               _familyName.trim().isEmpty ||
                               _creatingFamily
@@ -241,31 +283,34 @@ class _FamilyScreenState extends State<FamilyScreen> {
                                 if (!mounted) return;
                                 _bindFamilyDoc(doc);
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                      content: Text('Család létrehozva')),
-                                );
+                                    const SnackBar(
+                                        content: Text('Család létrehozva')));
                               } catch (e) {
                                 if (!mounted) return;
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('Hiba: $e')),
-                                );
+                                    SnackBar(content: Text('Hiba: $e')));
                               } finally {
-                                if (mounted) {
+                                if (mounted)
                                   setState(() => _creatingFamily = false);
-                                }
                               }
                             },
                       icon: _creatingFamily
                           ? const SizedBox(
                               width: 16,
                               height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.check_circle_outline),
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.add_circle_outline),
                       label: const Text('Család létrehozása'),
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(width: 8),
+                  OutlinedButton.icon(
+                    onPressed:
+                        uid == null ? null : () => _promptJoinByCode(uid),
+                    icon: const Icon(Icons.vpn_key),
+                    label: const Text('Csatlakozás kóddal'),
+                  ),
+                ]),
               ],
             ),
           ),
@@ -277,6 +322,45 @@ class _FamilyScreenState extends State<FamilyScreen> {
   Widget _buildManageFamily() {
     return ListView(
       children: [
+        _panel(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(Icons.family_restroom),
+                const SizedBox(width: 8),
+                Expanded(child: _buildFamilySelector()),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _promptJoinByCode(_auth.currentUser!.uid),
+                  icon: const Icon(Icons.vpn_key),
+                  label: const Text('Csatlakozás'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.redAccent,
+                    side: const BorderSide(color: Colors.redAccent),
+                  ),
+                  onPressed: _promptLeaveFamily,
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Kilépés'),
+                ),
+                const SizedBox(width: 8),
+                FilledButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _familyId = null; // show create/join
+                    });
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Új család'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
         _panel(
           child: ListTile(
             title: Text(_familyName,
@@ -293,6 +377,69 @@ class _FamilyScreenState extends State<FamilyScreen> {
         _buildTeamsSection(),
       ],
     );
+  }
+
+  Widget _buildFamilySelector() {
+    return DropdownButton<String>(
+      isExpanded: true,
+      value: _familyId,
+      hint: const Text('Válassz családot'),
+      items: [
+        for (final f in _families)
+          DropdownMenuItem(
+            value: f.id,
+            child: Text(f.name.isEmpty ? '(Névtelen család)' : f.name),
+          ),
+      ],
+      onChanged: (id) async {
+        if (id == null) return;
+        final doc = _families.firstWhere((f) => f.id == id).doc;
+        _bindFamilyDoc(doc);
+      },
+    );
+  }
+
+  Future<void> _promptJoinByCode(String uid) async {
+    final controller = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Csatlakozás meghívó kóddal'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(
+            labelText: 'Kód',
+            hintText: 'Pl. 9UKWDGPIH4',
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Mégse')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, controller.text.trim()),
+              child: const Text('Csatlakozás')),
+        ],
+      ),
+    );
+    if (code == null || code.isEmpty) return;
+    try {
+      final res = await _fs.acceptInviteWithCode(code: code, uid: uid);
+      final famId = res['familyId'] as String?;
+      if (famId != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('families')
+            .doc(famId)
+            .get();
+        if (!mounted) return;
+        _bindFamilyDoc(doc);
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Csatlakoztál a családhoz.')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Hiba: $e')));
+    }
   }
 
   Widget _buildInviteSection() {
@@ -611,6 +758,72 @@ class _FamilyScreenState extends State<FamilyScreen> {
     );
   }
 
+  Future<void> _promptLeaveFamily() async {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null || _familyId == null) return;
+    // Quick owner check
+    final fam = await FirebaseFirestore.instance
+        .collection('families')
+        .doc(_familyId)
+        .get();
+    final isOwner = (fam.data()?['ownerId']?.toString() == uid);
+    if (isOwner) {
+      if (!mounted) return;
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Nem hagyhatod el a családot'),
+          content: const Text(
+              'Te vagy a család tulajdonosa. Add át a tulajdonjogot, vagy töröld a családot, majd próbáld újra.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Értem')),
+          ],
+        ),
+      );
+      return;
+    }
+    final ok = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Kilépés a családból'),
+            content: const Text(
+                'Biztosan kilépsz? Eltávolítunk a család tagjai közül és a csapatokból.'),
+            actions: [
+              TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: const Text('Mégse')),
+              FilledButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  child: const Text('Kilépés')),
+            ],
+          ),
+        ) ??
+        false;
+    if (!ok) return;
+    try {
+      await _fs.leaveFamily(familyId: _familyId!, uid: uid);
+      // After leaving, pick another family if any; otherwise show create/join
+      final snap = await _fs.streamFamiliesForUser(uid).first;
+      if (snap.docs.isNotEmpty) {
+        _bindFamilyDoc(snap.docs.first);
+      } else {
+        setState(() {
+          _familyId = null;
+        });
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Kiléptél a családból.')));
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Hiba: $e')));
+    }
+  }
+
   String _buildInviteLink(String code) {
     final base = Uri.base;
     final origin = base.origin;
@@ -639,4 +852,11 @@ class _TeamDraft {
   _TeamDraft(
       {this.id, required this.name, this.colorHex, List<String>? participants})
       : participants = participants ?? [];
+}
+
+class _FamilyLite {
+  final String id;
+  final String name;
+  final DocumentSnapshot<Map<String, dynamic>> doc;
+  _FamilyLite({required this.id, required this.name, required this.doc});
 }

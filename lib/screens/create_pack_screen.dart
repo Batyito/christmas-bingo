@@ -63,6 +63,20 @@ class _CreatePackScreenState extends State<CreatePackScreen> {
     }
   }
 
+  void _copySelectedAsNew() {
+    final pack =
+        selectedPackId == null ? null : _getSelectedPack(selectedPackId!);
+    if (pack == null) return;
+    setState(() {
+      // Keep items but make this a new pack by clearing selection
+      selectedPackId = null;
+      packNameController.text = '${pack.name} (új)';
+      items = List.from(pack.items);
+      originalItems = List.from(pack.items);
+      isModified = true; // enable Save (will create new)
+    });
+  }
+
   void _addItem(String content) {
     if (content.isNotEmpty) {
       setState(() {
@@ -355,6 +369,14 @@ class _CreatePackScreenState extends State<CreatePackScreen> {
                               ),
                             ),
                           ),
+                          if (selectedPackId != null) ...[
+                            OutlinedButton.icon(
+                              onPressed: _copySelectedAsNew,
+                              icon: const Icon(Icons.copy_all_outlined),
+                              label: const Text('Másolatként új'),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
                           if (selectedPackId != null)
                             OutlinedButton.icon(
                               onPressed: () async {
