@@ -35,6 +35,8 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
       setState(() => _settings = _settings.copyWith(showBunnies: value));
   void _toggleFloaters(bool value) =>
       setState(() => _settings = _settings.copyWith(showFloaters: value));
+  void _toggleStampSound(bool value) =>
+      setState(() => _settings = _settings.copyWith(enableStampSound: value));
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +113,18 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                         dense: true,
                       ),
                       const Divider(),
+                      const ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text('Hangok'),
+                        dense: true,
+                      ),
+                      AppSwitchTile(
+                        title: 'Jelölés hangjelzés',
+                        value: _settings.enableStampSound,
+                        onChanged: _toggleStampSound,
+                        leadingIcon: Icons.volume_down_rounded,
+                        dense: true,
+                      ),
                       const ListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text('Húsvét'),

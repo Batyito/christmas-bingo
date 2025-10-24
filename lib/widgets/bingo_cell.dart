@@ -1,5 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../utils/performance.dart';
 
 class BingoCell extends StatefulWidget {
   final String content;
@@ -8,6 +10,8 @@ class BingoCell extends StatefulWidget {
   final bool isMatching; // Whether this cell is part of a Bingo
   final String currentTeamId; // Current team ID
   final List<String> teamOrder; // Stable team order for segment mapping
+  final bool enableStampSound; // Subtle sound on stamp
+  final String stampLabel; // Localized/theme-aware label
 
   const BingoCell({
     super.key,
@@ -17,6 +21,8 @@ class BingoCell extends StatefulWidget {
     required this.isMatching,
     required this.currentTeamId,
     required this.teamOrder,
+    this.enableStampSound = true,
+    this.stampLabel = 'STAMP',
   });
 
   @override
@@ -38,12 +44,42 @@ class _BingoCellState extends State<BingoCell>
       vsync: this,
       duration: const Duration(milliseconds: 420),
     );
-    _scale = Tween<double>(begin: 0.8, end: 1.0)
-        .chain(CurveTween(curve: Curves.easeOutBack))
-        .animate(_stampController);
-    _opacity = Tween<double>(begin: 0.0, end: 1.0)
-        .chain(CurveTween(curve: Curves.easeOut))
-        .animate(_stampController);
+    // Scale with a subtle overshoot then settle to 1.0
+    _scale = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.7, end: 1.12)
+            .chain(CurveTween(curve: Curves.easeOutBack)),
+        weight: 60,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.12, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 40,
+      ),
+    ]).animate(_stampController);
+    // Opacity: fade in then out so the stamp ribbon is temporary
+    _opacity = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 0.0, end: 1.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 55,
+      ),
+      TweenSequenceItem(
+        tween: Tween<double>(begin: 1.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 45,
+      ),
+    ]).animate(_stampController);
+    _stampController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        // Clear pulse teams so the temporary visuals disappear fully
+        if (mounted && _pulseTeams.isNotEmpty) {
+          setState(() {
+            _pulseTeams.clear();
+          });
+        }
+      }
+    });
     _prevMarkedTeams = _markedTeams(widget.marks);
   }
 
@@ -55,6 +91,14 @@ class _BingoCellState extends State<BingoCell>
     if (added.isNotEmpty) {
       _pulseTeams = added;
       _stampController.forward(from: 0);
+      if (widget.enableStampSound) {
+        // Play a very subtle system click sound where supported.
+        try {
+          SystemSound.play(SystemSoundType.click);
+        } catch (_) {
+          // ignore if unsupported (e.g., some web contexts)
+        }
+      }
     }
     _prevMarkedTeams = newMarked;
   }
@@ -157,6 +201,32 @@ class _BingoCellState extends State<BingoCell>
                 ),
               ),
             ),
+            // Brief burst effect near the stamp ribbon position during animation
+            if (_pulseTeams.contains(widget.currentTeamId))
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: AnimatedBuilder(
+                    animation: _stampController,
+                    builder: (context, _) {
+                      final scale = performanceScaleFromContext(context);
+                      final dots = scale >= 0.95
+                          ? 10
+                          : scale >= 0.75
+                              ? 8
+                              : 6;
+                      return CustomPaint(
+                        painter: _StampBurstPainter(
+                          progress: _stampController.value,
+                          color: (widget.teamColors[widget.currentTeamId] ??
+                                  Colors.white)
+                              .withOpacity(0.9),
+                          dotCount: dots,
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
             // Stamp pop for current team - move to top-right as a subtle ribbon
             if (_pulseTeams.contains(widget.currentTeamId))
               Positioned(
@@ -183,8 +253,8 @@ class _BingoCellState extends State<BingoCell>
                           ),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text(
-                          'STAMP',
+                        child: Text(
+                          widget.stampLabel,
                           style: TextStyle(
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.5,
@@ -308,5 +378,52 @@ class _MultiSegmentPainter extends CustomPainter {
         oldDelegate.segCount != segCount ||
         oldDelegate.pulse != pulse ||
         oldDelegate.pulseTeams != pulseTeams;
+  }
+}
+
+/// Painter for a small radial burst that expands and fades quickly.
+class _StampBurstPainter extends CustomPainter {
+  final double progress; // 0..1
+  final Color color;
+  final int dotCount;
+
+  _StampBurstPainter(
+      {required this.progress, required this.color, this.dotCount = 8});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress <= 0 || progress >= 1) return;
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    // Anchor near top-right, matching the stamp ribbon area
+    final anchor = Offset(size.width - 18, 18);
+
+    // Easing for radius and alpha
+    final t = Curves.easeOut.transform(progress.clamp(0.0, 1.0));
+    final radius = 4.0 + 18.0 * t; // expands
+    final alpha = (180 * (1.0 - t)).clamp(0, 180).toInt();
+
+    // Draw 8 small dots around in a circle, expanding outwards
+    final int dots = dotCount.clamp(4, 14);
+    for (int i = 0; i < dots; i++) {
+      final angle = (i / dots) * 2 * math.pi;
+      final dx = anchor.dx + radius * math.cos(angle);
+      final dy = anchor.dy + radius * math.sin(angle);
+      paint.color = color.withAlpha(alpha);
+      canvas.drawCircle(Offset(dx, dy), 1.8 * (1.0 - t), paint);
+    }
+
+    // Soft glow at the center
+    final glow = Paint()
+      ..color = color.withAlpha((80 * (1.0 - t)).toInt())
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6);
+    canvas.drawCircle(anchor, 6 * (1.0 - t), glow);
+  }
+
+  @override
+  bool shouldRepaint(covariant _StampBurstPainter oldDelegate) {
+    return oldDelegate.progress != progress || oldDelegate.color != color;
   }
 }

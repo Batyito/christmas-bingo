@@ -370,6 +370,8 @@ class _GameScreenState extends State<GameScreen> {
                         (i) => consolidatedMarks.sublist(i * 5, (i + 1) * 5),
                       ),
                       teamColors: dynamicTeamColors,
+                      themeKey: themeKey,
+                      effectsSettings: widget.effectsSettings,
                       onMarkCell: (row, col) async {
                         try {
                           final uid = AuthService().currentUser?.uid;
@@ -557,6 +559,8 @@ class _GameScreenState extends State<GameScreen> {
                           (i) => consolidatedMarks.sublist(i * 5, (i + 1) * 5),
                         ),
                         teamColors: dynamicTeamColors,
+                        themeKey: themeKey,
+                        effectsSettings: widget.effectsSettings,
                         onMarkCell: (row, col) async {
                           try {
                             final uid = AuthService().currentUser?.uid;

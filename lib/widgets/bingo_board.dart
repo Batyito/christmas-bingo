@@ -7,6 +7,7 @@ import 'package:flutter_fireworks/fireworks_controller.dart';
 import 'package:flutter_fireworks/fireworks_display.dart';
 import '../services/firestore/firestore_service.dart';
 import 'bingo_cell.dart';
+import '../models/effects_settings.dart';
 
 class BingoBoard extends StatefulWidget {
   final String gameId; // Game ID
@@ -18,6 +19,8 @@ class BingoBoard extends StatefulWidget {
   final Function(int row, int col)
       onUnmarkCell; // Callback for unmarking a cell
   final String teamId; // Current team ID
+  final String? themeKey; // To allow theme-aware UI tweaks
+  final EffectsSettings? effectsSettings; // For toggles like sound
 
   const BingoBoard({
     super.key,
@@ -28,6 +31,8 @@ class BingoBoard extends StatefulWidget {
     required this.onMarkCell,
     required this.onUnmarkCell,
     required this.teamId,
+    this.themeKey,
+    this.effectsSettings,
   });
 
   @override
@@ -251,6 +256,10 @@ class BingoBoardState extends State<BingoBoard>
                         isMatching: isMatching,
                         currentTeamId: widget.teamId,
                         teamOrder: widget.teamColors.keys.toList(),
+                        enableStampSound:
+                            widget.effectsSettings?.enableStampSound ?? true,
+                        stampLabel: _stampLabelForLocale(context,
+                            themeKey: widget.themeKey),
                       ),
                     );
                   },
@@ -390,4 +399,11 @@ class BingoBoardState extends State<BingoBoard>
     return marks.every((cellMarks) => cellMarks
         .any((mark) => mark['marked'] == true && mark['teamId'] == teamId));
   }
+}
+
+String _stampLabelForLocale(BuildContext context, {String? themeKey}) {
+  final lang = Localizations.localeOf(context).languageCode.toLowerCase();
+  // Base label localized, can be further customized per theme if desired.
+  if (lang == 'hu') return 'JELÖLVE';
+  return 'STAMP';
 }
